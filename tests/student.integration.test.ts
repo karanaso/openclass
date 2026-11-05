@@ -275,7 +275,7 @@ describe("millionaire game", () => {
     });
     expect(resumed.attemptId).toBe(started.attemptId);
 
-    const lifeline = await game.useLifeline({
+    const lifeline = await game.consumeLifeline({
       attemptId: started.attemptId,
       lessonId: lesson.id,
       normalizedStudentName: "maria",
@@ -284,7 +284,7 @@ describe("millionaire game", () => {
     });
     expect(lifeline.removedOptionIds?.length).toBe(2);
     await expect(
-      game.useLifeline({
+      game.consumeLifeline({
         attemptId: started.attemptId,
         lessonId: lesson.id,
         normalizedStudentName: "maria",
