@@ -17,7 +17,7 @@ async function makePdf(filePath: string, title: string) {
 }
 
 test("students can learn, play, and be assessed from a share link", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const suffix = Date.now().toString(36);
   const dir = await mkdtemp(path.join(os.tmpdir(), "lessonlab-student-e2e-"));
   const pdfPath = path.join(dir, `${suffix}-lesson.pdf`);

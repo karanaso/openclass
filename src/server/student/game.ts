@@ -296,7 +296,7 @@ function audienceDistribution(optionIds: string[], correctOptionId: string, seed
   return distribution;
 }
 
-export async function useLifeline(input: {
+export async function consumeLifeline(input: {
   attemptId: string;
   lessonId: string;
   normalizedStudentName: string;

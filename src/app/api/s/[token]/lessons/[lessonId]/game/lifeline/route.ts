@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { json, withPublic } from "@/server/http";
 import { assertLessonInShare, requireStudentContext } from "@/server/student/guard";
-import { useLifeline } from "@/server/student/game";
+import { consumeLifeline } from "@/server/student/game";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     assertLessonInShare(share, lessonId);
     const body = bodySchema.parse(await request.json());
 
-    const result = await useLifeline({
+    const result = await consumeLifeline({
       attemptId: body.attemptId,
       lessonId,
       normalizedStudentName: session.normalizedName,

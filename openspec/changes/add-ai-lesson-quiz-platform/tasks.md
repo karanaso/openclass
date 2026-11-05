@@ -95,14 +95,14 @@
 
 ## 11. Deployment and Operations
 
-- [ ] 11.1 Create multi-stage web and worker Docker targets with ffmpeg and Poppler, a non-root user, and no secrets baked in, and verify both images build.
-- [ ] 11.2 Add Docker Compose with PostgreSQL, Redis, web, worker, healthchecks, and persistent database and media volumes, and verify `docker compose up` reaches healthy.
-- [ ] 11.3 Run migrations from the entrypoint and add database, Redis, storage, and environment health checks, and verify an unhealthy dependency is reported.
-- [ ] 11.4 Add backup and restore scripts plus `docs/operations.md`, and verify a restore drill into a clean environment.
-- [ ] 11.5 Add a full-stack E2E smoke test with mocked AI, TTS, and ffmpeg boundaries, and verify login through student results passes in Compose.
-- [ ] 11.6 Run security smoke tests for admin access, share-token isolation, answer-key leakage, upload abuse, and rate limits, and verify all pass.
-- [ ] 11.7 Sanity-check concurrent uploads, SSE reconnection, and video range requests, and verify the app stays responsive during generation.
-- [ ] 11.8 Document deployment configuration, resource sizing, and secret handling in `docs/deployment.md`, and verify a fresh host can follow it without missing steps.
+- [x] 11.1 Create multi-stage web and worker Docker targets with ffmpeg and Poppler, a non-root user, and no secrets baked in, and verify both images build.
+- [x] 11.2 Add Docker Compose with PostgreSQL, Redis, web, worker, healthchecks, and persistent database and media volumes, and verify `docker compose up` reaches healthy.
+- [x] 11.3 Run migrations from the entrypoint and add database, Redis, storage, and environment health checks, and verify an unhealthy dependency is reported.
+- [x] 11.4 Add backup and restore scripts plus `docs/operations.md`, and verify a restore drill into a clean environment.
+- [x] 11.5 Add a full-stack E2E smoke test with mocked AI, TTS, and ffmpeg boundaries, and verify login through student results passes in Compose.
+- [x] 11.6 Run security smoke tests for admin access, share-token isolation, answer-key leakage, upload abuse, and rate limits, and verify all pass.
+- [x] 11.7 Sanity-check concurrent uploads, SSE reconnection, and video range requests, and verify the app stays responsive during generation.
+- [x] 11.8 Document deployment configuration, resource sizing, and secret handling in `docs/deployment.md`, and verify a fresh host can follow it without missing steps.
 
 ## Workflow follow-up
 

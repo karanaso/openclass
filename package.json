@@ -7,6 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "backup": "sh scripts/backup.sh",
+    "restore": "sh scripts/restore.sh",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -21,6 +23,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "@swc/helpers": "^0.5.24",
     "argon2": "^0.44.0",
     "bullmq": "^5.63.0",
     "class-variance-authority": "^0.7.1",
