@@ -66,6 +66,13 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(page.getByTestId("card-text")).not.toHaveText(firstCard ?? "");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByTestId("card-deck")).toContainText("Κάρτα 2");
+  for (let index = 0; index < 20; index += 1) {
+    const next = page.getByTestId("card-deck").getByRole("button", { name: "Επόμενο" });
+    if (!(await next.isEnabled())) break;
+    await next.click();
+  }
+  await page.getByTestId("card-deck").getByRole("button", { name: "Ολοκλήρωση" }).click();
+  await expect(page.getByTestId("card-deck")).toContainText("Ολοκλήρωσες τις κάρτες!");
 
   // No answer keys in the game payload
   const gameStart = await page.request.post(`/api/s/${token}/lessons/${lessonId}/game/start`, {
@@ -132,6 +139,18 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await page.context().clearCookies({ name: "student_session" });
   await page.goto(shareUrl);
   await expect(page.getByTestId("student-name")).toHaveValue(`Μαθήτρια ${suffix}`);
+
+  // Teacher results dashboards
+  await page.goto(`/el/admin/lessons/${lessonId}/results`);
+  await expect(page.getByText(`Μαθήτρια ${suffix}`)).toBeVisible();
+  await expect(page.getByText("Ανά ερώτηση")).toBeVisible();
+  const csv = await page.request.get(`/api/admin/lessons/${lessonId}/results/export`);
+  expect(csv.status()).toBe(200);
+  expect(await csv.text()).toContain("student");
+
+  await page.goto(`/el/admin/classes/${classId}/results`);
+  await expect(page.getByText("Σύνοψη τάξης")).toBeVisible();
+  await expect(page.getByText(`Μαθήτρια ${suffix}`)).toBeVisible();
 
   // Teacher cleanup (the teacher session from the start of the test is still valid)
   await page.goto("/el/admin");

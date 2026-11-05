@@ -85,13 +85,13 @@
 
 ## 10. Results and Analytics
 
-- [ ] 10.1 Persist questionnaire and game attempts with idempotency, retake enforcement, and normalized names, and verify integration tests for duplicate submits and retakes.
-- [ ] 10.2 Build the lesson results dashboard with attempt list and aggregate statistics, and verify numbers match seeded attempts.
-- [ ] 10.3 Add per-question correctness rates and option distributions, and verify weak items sort first.
-- [ ] 10.4 Build the class results overview with per-lesson and per-student averages, and verify it matches a seeded multi-lesson fixture.
-- [ ] 10.5 Implement CSV export for lesson and class scope, and verify the file parses with correct columns and all in-scope attempts.
-- [ ] 10.6 Implement attempt deletion and student result scoping, and verify students can read only their own attempt and deleted attempts leave statistics.
-- [ ] 10.7 Track and display deck completion, and verify reaching the last card records one view per student and lesson.
+- [x] 10.1 Persist questionnaire and game attempts with idempotency, retake enforcement, and normalized names, and verify integration tests for duplicate submits and retakes.
+- [x] 10.2 Build the lesson results dashboard with attempt list and aggregate statistics, and verify numbers match seeded attempts.
+- [x] 10.3 Add per-question correctness rates and option distributions, and verify weak items sort first.
+- [x] 10.4 Build the class results overview with per-lesson and per-student averages, and verify it matches a seeded multi-lesson fixture.
+- [x] 10.5 Implement CSV export for lesson and class scope, and verify the file parses with correct columns and all in-scope attempts.
+- [x] 10.6 Implement attempt deletion and student result scoping, and verify students can read only their own attempt and deleted attempts leave statistics.
+- [x] 10.7 Track and display deck completion, and verify reaching the last card records one view per student and lesson.
 
 ## 11. Deployment and Operations
 

@@ -130,6 +130,7 @@
     "generateVariant": "Generate variant",
     "processingHint": "Processing continues in the background. You can close this page.",
     "backToClasses": "Back to classes",
+    "backToLesson": "Back to lesson",
     "lessonDetails": "Lesson details",
     "artifacts": "Generated content",
     "cardsCount": "Cards",

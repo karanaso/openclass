@@ -19,6 +19,7 @@ export function CardDeck({
   initiallyViewed: boolean;
 }) {
   const t = useTranslations("student");
+  const tc = useTranslations("common");
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [completed, setCompleted] = useState(initiallyViewed);
@@ -110,10 +111,10 @@ export function CardDeck({
             setIndex((current) => Math.max(0, current - 1));
             setRevealed(false);
           }}
-          aria-label={t("tabs.cards")}
+          aria-label={tc("previous")}
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {t("close")}
+          {tc("previous")}
         </Button>
         <Button
           variant="outline"
@@ -130,9 +131,9 @@ export function CardDeck({
             setIndex((current) => Math.min(cards.length - 1, current + 1));
             setRevealed(false);
           }}
-          aria-label={t("next")}
+          aria-label={tc("next")}
         >
-          {t("next")}
+          {tc("next")}
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Button>
       </div>
