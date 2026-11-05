@@ -35,11 +35,11 @@
 
 ## 5. Classes and Lessons
 
-- [ ] 5.1 Implement class create, edit, list, and reorder APIs with zod validation, and verify API tests cover empty names and invalid order payloads.
-- [ ] 5.2 Build the admin class list with create, rename, color, and drag-reorder, and verify a Playwright test persists the changes after reload.
-- [ ] 5.3 Implement class-scoped lesson listing and lesson detail queries, and verify lessons never appear under another class.
-- [ ] 5.4 Implement confirmed class deletion with cascade cleanup, and verify an integration test removes lessons, artifacts, attempts, share links, and stored files.
-- [ ] 5.5 Build the class detail and lesson detail shells showing status, usage, share links, and results entry points, and verify both pages render for an empty class.
+- [x] 5.1 Implement class create, edit, list, and reorder APIs with zod validation, and verify API tests cover empty names and invalid order payloads.
+- [x] 5.2 Build the admin class list with create, rename, color, and drag-reorder, and verify a Playwright test persists the changes after reload.
+- [x] 5.3 Implement class-scoped lesson listing and lesson detail queries, and verify lessons never appear under another class.
+- [x] 5.4 Implement confirmed class deletion with cascade cleanup, and verify an integration test removes lessons, artifacts, attempts, share links, and stored files.
+- [x] 5.5 Build the class detail and lesson detail shells showing status, usage, share links, and results entry points, and verify both pages render for an empty class.
 
 ## 6. Upload and Ingestion
 
