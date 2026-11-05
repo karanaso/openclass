@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "argon2", "bullmq", "ioredis", "pino"],
   poweredByHeader: false,
   async headers() {
+    const isDev = process.env.NODE_ENV !== "production";
+    const scriptSrc = `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`;
+    const connectSrc = `connect-src 'self'${isDev ? " ws: http:" : ""}`;
     return [
       {
         source: "/(.*)",
@@ -19,7 +22,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+              `default-src 'self'; img-src 'self' data:; media-src 'self' blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ${connectSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
           },
         ],
       },
