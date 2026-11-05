@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LessonStatus {
+  QUEUED
+  EXTRACTING
+  GENERATING
+  RENDERING
+  READY
+  FAILED
+  CANCELLED
+}
+
+enum JobStage {
+  EXTRACT
+  GENERATE
+  TTS
+  RENDER
+}
+
+enum JobStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+enum QuestionMode {
+  QUESTIONNAIRE
+  GAME
+}
+
+enum QuestionType {
+  TRUE_FALSE
+  MULTIPLE_CHOICE
+}
+
+enum VideoStatus {
+  PENDING
+  RENDERING
+  READY
+  FAILED
+  SKIPPED
+}
+
+enum AttemptMode {
+  QUESTIONNAIRE
+  GAME
+}
+
+enum GameStatus {
+  ACTIVE
+  COMPLETED
+  ENDED
+}
+
+model Class {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#2563eb")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons    Lesson[]
+  shareLinks ShareLink[]
+
+  @@index([position])
+}
+
+model Lesson {
+  id               String        @id @default(cuid())
+  classId          String
+  title            String
+  originalFilename String
+  storageKey       String
+  checksum         String
+  sizeBytes        Int
+  pageCount        Int?
+  sourceLocale     String        @default("el")
+  status           LessonStatus  @default(QUEUED)
+  failureReason    String?
+  retakeEnabled    Boolean       @default(false)
+  passThreshold    Int           @default(60)
+  jobVersion       Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  processingStartedAt DateTime?
+  readyAt          DateTime?
+
+  class      Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  pages      LessonPage[]
+  jobs       GenerationJob[]
+  cards      Card[]
+  questions  Question[]
+  narration  NarrationSegment[]
+  videos     VideoAsset[]
+  shareLinks ShareLink[]
+  attempts   Attempt[]
+  drafts     AttemptDraft[]
+  deckViews  DeckView[]
+
+  @@index([classId, createdAt])
+  @@index([classId, checksum])
+  @@index([status])
+}
+
+model LessonPage {
+  id         String @id @default(cuid())
+  lessonId   String
+  pageNumber Int
+  text       String
+  imageKey   String?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, pageNumber])
+}
+
+model GenerationJob {
+  id               String    @id @default(cuid())
+  lessonId         String
+  stage            JobStage
+  status           JobStatus @default(PENDING)
+  attempts         Int       @default(0)
+  model            String?
+  promptVersion    String?
+  inputTokens      Int       @default(0)
+  outputTokens     Int       @default(0)
+  estimatedCostUsd Float     @default(0)
+  error            String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, stage])
+  @@index([lessonId, createdAt])
+  @@index([status])
+}
+
+model Card {
+  id         String   @id @default(cuid())
+  lessonId   String
+  itemKey    String
+  position   Int
+  sourcePage Int
+  createdAt  DateTime @default(now())
+
+  lesson       Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  translations CardTranslation[]
+
+  @@unique([lessonId, itemKey])
+  @@index([lessonId, position])
+}
+
+model CardTranslation {
+  id     String @id @default(cuid())
+  cardId String
+  locale String
+  prompt String
+  answer String
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, locale])
+}
+
+model Question {
+  id              String       @id @default(cuid())
+  lessonId        String
+  mode            QuestionMode
+  itemKey         String
+  position        Int
+  type            QuestionType
+  correctOptionId String
+  sourcePage      Int
+  createdAt       DateTime     @default(now())
+
+  lesson       Lesson                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  translations QuestionTranslation[]
+  answers      AttemptAnswer[]
+
+  @@unique([lessonId, mode, itemKey])
+  @@index([lessonId, mode, position])
+}
+
+model QuestionTranslation {
+  id          String @id @default(cuid())
+  questionId  String
+  locale      String
+  prompt      String
+  options     Json
+  explanation String
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, locale])
+}
+
+model NarrationSegment {
+  id         String  @id @default(cuid())
+  lessonId   String
+  pageNumber Int
+  locale     String
+  script     String
+  audioKey   String?
+  durationMs Int?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, pageNumber, locale])
+}
+
+model VideoAsset {
+  id          String      @id @default(cuid())
+  lessonId    String
+  locale      String
+  status      VideoStatus @default(PENDING)
+  storageKey  String?
+  captionsKey String?
+  posterKey   String?
+  durationMs  Int?
+  sizeBytes   Int?
+  error       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, locale])
+  @@index([lessonId, status])
+}
+
+model ShareLink {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  classId      String?
+  lessonId     String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  lastAccessedAt DateTime?
+
+  class  Class?  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  lesson Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+  @@index([lessonId])
+}
+
+model Attempt {
+  id                    String      @id @default(cuid())
+  lessonId              String
+  studentName           String
+  normalizedStudentName String
+  mode                  AttemptMode
+  locale                String
+  score                 Int         @default(0)
+  maxScore              Int         @default(0)
+  percentage            Int         @default(0)
+  passed                Boolean     @default(false)
+  durationMs            Int         @default(0)
+  reachedLevel          Int?
+  gameStatus            GameStatus?
+  sessionTokenHash      String?     @unique
+  questionOrder         Json?
+  currentIndex          Int         @default(0)
+  lifelines             Json?
+  idempotencyKey        String?
+  startedAt             DateTime    @default(now())
+  lastActivityAt        DateTime    @default(now())
+  completedAt           DateTime?
+  createdAt             DateTime    @default(now())
+
+  lesson  Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  answers AttemptAnswer[]
+
+  @@unique([lessonId, idempotencyKey])
+  @@index([lessonId, normalizedStudentName, mode])
+  @@index([lessonId, completedAt])
+}
+
+model AttemptAnswer {
+  id               String   @id @default(cuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String
+  isCorrect        Boolean
+  answeredAt       DateTime @default(now())
+
+  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+}
+
+model AttemptDraft {
+  id                    String   @id @default(cuid())
+  lessonId              String
+  normalizedStudentName String
+  locale                String
+  answers               Json
+  updatedAt             DateTime @updatedAt
+  expiresAt             DateTime
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, normalizedStudentName])
+}
+
+model DeckView {
+  id                    String   @id @default(cuid())
+  lessonId              String
+  normalizedStudentName String
+  completedAt           DateTime @default(now())
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, normalizedStudentName])
+}

@@ -10,11 +10,11 @@
 
 ## 2. Data Model
 
-- [ ] 2.1 Define Prisma models for classes, lessons, pages, jobs, cards, questions, narration, videos, share links, attempts, drafts, and deck views, and verify `npx prisma validate` passes.
-- [ ] 2.2 Add enums, indexes, uniqueness constraints, and the initial migration, and verify `npx prisma migrate deploy` succeeds against an empty PostgreSQL database.
-- [ ] 2.3 Implement transactional repositories for lesson status, artifact publication, and attempt writing, and verify repository integration tests cover rollback.
-- [ ] 2.4 Add a Testcontainers harness for PostgreSQL and Redis, and verify the integration suite starts and tears down cleanly.
-- [ ] 2.5 Add an idempotent development seed with one class and one lesson stub, and verify running it twice produces one of each.
+- [x] 2.1 Define Prisma models for classes, lessons, pages, jobs, cards, questions, narration, videos, share links, attempts, drafts, and deck views, and verify `npx prisma validate` passes.
+- [x] 2.2 Add enums, indexes, uniqueness constraints, and the initial migration, and verify `npx prisma migrate deploy` succeeds against an empty PostgreSQL database.
+- [x] 2.3 Implement transactional repositories for lesson status, artifact publication, and attempt writing, and verify repository integration tests cover rollback.
+- [x] 2.4 Add a Testcontainers harness for PostgreSQL and Redis, and verify the integration suite starts and tears down cleanly.
+- [x] 2.5 Add an idempotent development seed with one class and one lesson stub, and verify running it twice produces one of each.
 
 ## 3. Teacher Authentication
 
