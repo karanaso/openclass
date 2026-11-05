@@ -1,3 +1,5 @@
+import { ZodError } from "zod";
+
 export class AppError extends Error {
   readonly code: string;
   readonly status: number;
@@ -56,6 +58,12 @@ export function isAppError(error: unknown): error is AppError {
 }
 
 export function toErrorResponse(error: unknown): { status: number; body: Record<string, unknown>; headers?: Record<string, string> } {
+  if (error instanceof ZodError) {
+    return {
+      status: 422,
+      body: { error: { code: "validation_error", message: "Invalid input", details: error.flatten() } },
+    };
+  }
   if (isAppError(error)) {
     return {
       status: error.status,
