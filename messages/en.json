@@ -47,6 +47,7 @@
     "settings": "Settings"
   },
   "home": {
+    "badge": "AI · PDF → Cards · Video · Game · Quiz",
     "title": "Turn every lesson into an experience",
     "subtitle": "Upload your PDFs and get study cards, video, a game, and assessment — automatically, in Greek and English.",
     "teacherCta": "Teacher login",

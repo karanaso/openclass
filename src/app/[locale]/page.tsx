@@ -21,7 +21,7 @@ export default async function HomePage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-16">
         <section className="mx-auto max-w-3xl text-center">
           <p className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1 text-sm font-semibold text-primary">
-            AI · PDF → Cards · Video · Game · Quiz
+            {t("badge")}
           </p>
           <h1 className="text-4xl font-black tracking-tight sm:text-6xl">{t("title")}</h1>
           <p className="mt-5 text-lg text-muted-foreground">{t("subtitle")}</p>

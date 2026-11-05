@@ -27,11 +27,11 @@
 
 ## 4. Localization and App Shell
 
-- [ ] 4.1 Wire `next-intl` with `/el` and `/en` routes and locale negotiation, and verify `/` lands on Greek and `Accept-Language: en` lands on English.
-- [ ] 4.2 Create Greek and English message catalogs plus the shared layout, navigation, and form primitives, and verify no hardcoded user-facing strings remain in those components.
-- [ ] 4.3 Add locale-aware date, number, and percentage helpers, and verify their unit tests for both locales.
-- [ ] 4.4 Add a language switcher that persists the choice, and verify switching on admin and student surfaces keeps the current page context.
-- [ ] 4.5 Document the translation workflow in `docs/i18n.md`, and verify a newly added key appears in both locales without raw-key fallback.
+- [x] 4.1 Wire `next-intl` with `/el` and `/en` routes and locale negotiation, and verify `/` lands on Greek and `Accept-Language: en` lands on English.
+- [x] 4.2 Create Greek and English message catalogs plus the shared layout, navigation, and form primitives, and verify no hardcoded user-facing strings remain in those components.
+- [x] 4.3 Add locale-aware date, number, and percentage helpers, and verify their unit tests for both locales.
+- [x] 4.4 Add a language switcher that persists the choice, and verify switching on admin and student surfaces keeps the current page context.
+- [x] 4.5 Document the translation workflow in `docs/i18n.md`, and verify a newly added key appears in both locales without raw-key fallback.
 
 ## 5. Classes and Lessons
 
