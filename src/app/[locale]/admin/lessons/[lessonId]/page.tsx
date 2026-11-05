@@ -1,7 +1,8 @@
 import { ArrowLeft, BookOpen, Bot, FileText, ListChecks, Video } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { LessonActions } from "@/components/admin/lesson-actions";
+import { LessonStatus } from "@/components/admin/lesson-status";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
@@ -50,11 +51,16 @@ export default async function LessonDetailPage({
               {formatDate(lesson.createdAt, locale as Locale)}
             </p>
           </div>
-          <StatusBadge status={lesson.status} />
+          <div className="flex flex-col items-end gap-2">
+            <LessonStatus
+              lessonId={lesson.id}
+              initialStatus={lesson.status}
+              initialFailureReason={lesson.failureReason}
+            />
+            <LessonActions lessonId={lesson.id} status={lesson.status} />
+          </div>
         </div>
       </div>
-
-      {lesson.failureReason ? <Alert variant="error">{lesson.failureReason}</Alert> : null}
       {(lesson.status === "QUEUED" || lesson.status === "EXTRACTING" || lesson.status === "GENERATING" || lesson.status === "RENDERING") ? (
         <Alert variant="info">{t("processingHint")}</Alert>
       ) : null}
