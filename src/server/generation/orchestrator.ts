@@ -3,6 +3,7 @@ import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { prisma as defaultPrisma } from "@/server/db";
+import { enqueueStage } from "@/server/queue";
 import { publishArtifacts } from "@/server/repositories/publication";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { chunkPages, PROMPT_VERSION } from "./prompts";
@@ -35,6 +36,7 @@ export type GenerateOptions = {
   db?: PrismaClient;
   maxAttempts?: number;
   retryDelayMs?: number;
+  continueToMedia?: boolean;
 };
 
 export type GenerationResult = {
@@ -166,6 +168,16 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
           error: null,
         },
       });
+
+      if (options.continueToMedia) {
+        await setLessonStatus(lessonId, "RENDERING", {}, db);
+        try {
+          await enqueueStage({ lessonId, stage: "tts", version: lesson.jobVersion });
+        } catch (error) {
+          logger.error({ lessonId, err: error }, "could not queue speech synthesis");
+          await setLessonStatus(lessonId, "READY", {}, db);
+        }
+      }
 
       return { artifacts, usage, estimatedCostUsd: cost };
     } catch (error) {

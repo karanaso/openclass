@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
+import { VideoVariantControls } from "@/components/admin/video-variant-controls";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
@@ -161,6 +162,14 @@ export default async function LessonDetailPage({
                 </div>
               ))
             )}
+            <VideoVariantControls
+              lessonId={lesson.id}
+              videos={lesson.videos.map((video) => ({
+                locale: video.locale,
+                status: video.status,
+                error: video.error,
+              }))}
+            />
           </CardContent>
         </Card>
       </div>

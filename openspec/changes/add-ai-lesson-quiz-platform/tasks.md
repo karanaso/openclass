@@ -65,12 +65,12 @@
 
 ## 8. Speech and Video
 
-- [ ] 8.1 Implement per-page, per-locale TTS with duration measurement, and verify a mocked contract test writes audio and records durations.
-- [ ] 8.2 Implement ffmpeg slide segments, concatenation, H.264/AAC output, poster extraction, and WebVTT captions, and verify a two-page smoke test produces a seekable MP4 with captions.
-- [ ] 8.3 Orchestrate automatic primary-locale rendering and on-demand second-locale rendering, and verify both locale variants are exposed when complete.
+- [x] 8.1 Implement per-page, per-locale TTS with duration measurement, and verify a mocked contract test writes audio and records durations.
+- [x] 8.2 Implement ffmpeg slide segments, concatenation, H.264/AAC output, poster extraction, and WebVTT captions, and verify a two-page smoke test produces a seekable MP4 with captions.
+- [x] 8.3 Orchestrate automatic primary-locale rendering and on-demand second-locale rendering, and verify both locale variants are exposed when complete.
 - [ ] 8.4 Add video status, unavailable state, and retry to the lesson detail and student tabs, and verify a failed render leaves the other modes usable.
-- [ ] 8.5 Enforce page, duration, size, and timeout limits with temp cleanup and disk checks, and verify an oversized lesson is skipped with a clear reason.
-- [ ] 8.6 Document TTS voice and video settings in `docs/media.md`, and verify changing a voice produces a new render without regenerating questions.
+- [x] 8.5 Enforce page, duration, size, and timeout limits with temp cleanup and disk checks, and verify an oversized lesson is skipped with a clear reason.
+- [x] 8.6 Document TTS voice and video settings in `docs/media.md`, and verify changing a voice produces a new render without regenerating questions.
 
 ## 9. Student Experience
 

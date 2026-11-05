@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { AppError } from "@/lib/errors";
+import { getEnv } from "@/lib/env";
 import { detectContentLocale } from "@/lib/locale";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/server/db";
+import { renderPdfPageImages } from "@/server/media/ffmpeg";
 import { extractPdfPages } from "@/server/pdf/extract";
 import { enqueueStage, type PipelineJob } from "@/server/queue";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
@@ -34,6 +38,16 @@ export async function processExtract(data: PipelineJob): Promise<void> {
     }),
     prisma.lesson.update({ where: { id: lesson.id }, data: { pageCount: pages.length, sourceLocale } }),
   ]);
+
+  try {
+    await renderPdfPageImages(
+      storage.getAbsolutePath(lesson.storageKey),
+      path.join(storage.getRoot(), "lessons", lesson.id, "pages"),
+      { maxPages: getEnv().MAX_PDF_PAGES, prefix: "page" },
+    );
+  } catch (error) {
+    logger.warn({ lessonId: lesson.id, err: error }, "page image rendering failed; video will be unavailable");
+  }
 
   await setLessonStatus(lesson.id, "GENERATING");
   await enqueueStage({ lessonId: lesson.id, stage: "generate", version: data.version });

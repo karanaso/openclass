@@ -49,6 +49,32 @@ export function createPipelineWorker(): Worker<PipelineJob> {
       "pipeline job failed",
     );
     if (job.attemptsMade >= maxAttempts) {
+      if (job.name === "tts" || job.name === "render") {
+        const lesson = await prisma.lesson
+          .findUnique({ where: { id: job.data.lessonId }, select: { sourceLocale: true } })
+          .catch(() => null);
+        const locale = job.data.locale ?? lesson?.sourceLocale ?? "el";
+        await prisma.videoAsset
+          .upsert({
+            where: { lessonId_locale: { lessonId: job.data.lessonId, locale } },
+            create: {
+              lessonId: job.data.lessonId,
+              locale,
+              status: "FAILED",
+              error: error.message.slice(0, 1000),
+            },
+            update: { status: "FAILED", error: error.message.slice(0, 1000) },
+          })
+          .catch((updateError) => logger.error({ err: updateError }, "could not mark video failed"));
+        await prisma.lesson
+          .updateMany({
+            where: { id: job.data.lessonId, status: "RENDERING" },
+            data: { status: "READY" },
+          })
+          .catch((updateError) => logger.error({ err: updateError }, "could not restore lesson status"));
+        return;
+      }
+
       await prisma.lesson
         .updateMany({
           where: { id: job.data.lessonId, status: { not: "CANCELLED" } },
