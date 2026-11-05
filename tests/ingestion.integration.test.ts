@@ -187,6 +187,9 @@ describe("lesson control", () => {
     expect(["READY", "FAILED"]).toContain(finalStatus);
     const pages = await prisma.lessonPage.count({ where: { lessonId } });
     expect(pages).toBeGreaterThan(0);
+
+    await worker.close();
+    worker = null;
   });
 
   it("streams a terminal status over SSE", async () => {
