@@ -60,7 +60,7 @@ export function LoginForm() {
           onChange={(event) => setPassword(event.target.value)}
         />
       </div>
-      <Button type="submit" className="w-full" size="lg" disabled={pending}>
+      <Button type="submit" data-testid="login-submit" className="w-full" size="lg" disabled={pending}>
         {pending ? "…" : t("submit")}
       </Button>
     </form>
