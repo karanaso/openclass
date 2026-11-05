@@ -2,11 +2,11 @@
 
 ## 1. Foundation
 
-- [ ] 1.1 Initialize a Next.js 15 App Router project with TypeScript, Tailwind, ESLint, and Vitest, and verify `npm run build` and `npm test` succeed.
-- [ ] 1.2 Add Prisma, BullMQ, ioredis, zod, jose, argon2, next-intl, framer-motion, howler, unpdf, and pino, and verify installation leaves `npm run build` green.
-- [ ] 1.3 Create a zod-validated environment module and `.env.example`, and verify a unit test fails fast when a required secret is missing.
-- [ ] 1.4 Establish `src/server`, `src/lib`, `src/worker`, and `src/app` boundaries with structured logging and typed errors, and verify lint and typecheck pass.
-- [ ] 1.5 Add `lint`, `typecheck`, `test`, and `build` scripts and verify all four run successfully in a clean checkout.
+- [x] 1.1 Initialize a Next.js 15 App Router project with TypeScript, Tailwind, ESLint, and Vitest, and verify `npm run build` and `npm test` succeed.
+- [x] 1.2 Add Prisma, BullMQ, ioredis, zod, jose, argon2, next-intl, framer-motion, howler, unpdf, and pino, and verify installation leaves `npm run build` green.
+- [x] 1.3 Create a zod-validated environment module and `.env.example`, and verify a unit test fails fast when a required secret is missing.
+- [x] 1.4 Establish `src/server`, `src/lib`, `src/worker`, and `src/app` boundaries with structured logging and typed errors, and verify lint and typecheck pass.
+- [x] 1.5 Add `lint`, `typecheck`, `test`, and `build` scripts and verify all four run successfully in a clean checkout.
 
 ## 2. Data Model
 

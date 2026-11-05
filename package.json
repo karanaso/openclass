@@ -13,6 +13,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "worker": "tsx src/worker/index.ts",
+    "hash-password": "tsx src/scripts/hash-password.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"
@@ -28,7 +29,7 @@
     "ioredis": "^5.8.2",
     "jose": "^6.1.0",
     "lucide-react": "^0.468.0",
-    "next": "15.5.7",
+    "next": "^15.5.29",
     "next-intl": "^4.5.0",
     "pino": "^9.14.0",
     "react": "19.1.0",
@@ -49,7 +50,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "15.5.7",
+    "eslint-config-next": "^15.5.29",
     "jsdom": "^25.0.1",
     "pdf-lib": "^1.17.1",
     "postcss": "^8.4.49",
@@ -59,5 +60,19 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "argon2@0.44.0": true,
+    "cpu-features@0.0.10": true,
+    "esbuild@0.28.2": true,
+    "msgpackr-extract@3.0.6": true,
+    "@swc/core@1.16.22": true,
+    "prisma@6.19.3": true,
+    "protobufjs@7.6.6": true,
+    "sharp@0.34.5": true,
+    "ssh2@1.17.0": true
   }
 }
