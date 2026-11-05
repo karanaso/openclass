@@ -28,6 +28,7 @@ export function Questionnaire({
   canRetake,
 }: Props) {
   const t = useTranslations("student");
+  const tc = useTranslations("common");
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [current, setCurrent] = useState(0);
   const [result, setResult] = useState<QuestionnaireResult | null>(existingResult);
@@ -193,11 +194,11 @@ export function Questionnaire({
       <div className="flex items-center justify-between gap-2">
         <Button variant="outline" disabled={current === 0} onClick={() => setCurrent((value) => Math.max(0, value - 1))}>
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {t("tabs.quiz")}
+          {tc("previous")}
         </Button>
         {current < questions.length - 1 ? (
           <Button onClick={() => setCurrent((value) => Math.min(questions.length - 1, value + 1))}>
-            {t("next")}
+            {tc("next")}
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
         ) : (
