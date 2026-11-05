@@ -91,6 +91,7 @@ export async function getClassWithLessons(id: string, db: PrismaClient = default
   const classroom = await db.class.findUnique({
     where: { id },
     include: {
+      shareLinks: true,
       lessons: {
         orderBy: { createdAt: "desc" },
         include: {

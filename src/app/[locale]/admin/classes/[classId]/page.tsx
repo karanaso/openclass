@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonUploader } from "@/components/admin/lesson-uploader";
+import { ShareLinkManager } from "@/components/admin/share-link-manager";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
@@ -55,6 +56,23 @@ export default async function ClassDetailPage({
         </CardHeader>
         <CardContent>
           <LessonUploader classId={classroom.id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("shareClass")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ShareLinkManager
+            classId={classroom.id}
+            initialLinks={classroom.shareLinks.map((link) => ({
+              id: link.id,
+              expiresAt: link.expiresAt?.toISOString() ?? null,
+              revokedAt: link.revokedAt?.toISOString() ?? null,
+              createdAt: link.createdAt.toISOString(),
+            }))}
+          />
         </CardContent>
       </Card>
 

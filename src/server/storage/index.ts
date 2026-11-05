@@ -57,8 +57,8 @@ export class LocalStorage {
     return safeStorageKey(key);
   }
 
-  getStream(key: string) {
-    return createReadStream(this.resolve(key));
+  getStream(key: string, options?: { start?: number; end?: number }) {
+    return createReadStream(this.resolve(key), options);
   }
 
   async stat(key: string) {

@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
+import { ShareLinkManager } from "@/components/admin/share-link-manager";
 import { VideoVariantControls } from "@/components/admin/video-variant-controls";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -182,21 +183,15 @@ export default async function LessonDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          {lesson.shareLinks.length === 0 ? (
-            <p className="text-muted-foreground">{t("noShareLinks")}</p>
-          ) : (
-            lesson.shareLinks.map((link) => (
-              <div key={link.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
-                <span>{link.lessonId ? t("shareLesson") : t("shareClass")}</span>
-                <span className="text-muted-foreground">
-                  {link.expiresAt ? `${t("expiresAt")}: ${formatDate(link.expiresAt, locale as Locale)}` : t("noExpiry")}
-                </span>
-                <Badge variant={link.revokedAt ? "destructive" : "success"}>
-                  {link.revokedAt ? t("revoked") : t("status.READY")}
-                </Badge>
-              </div>
-            ))
-          )}
+          <ShareLinkManager
+            lessonId={lesson.id}
+            initialLinks={lesson.shareLinks.map((link) => ({
+              id: link.id,
+              expiresAt: link.expiresAt?.toISOString() ?? null,
+              revokedAt: link.revokedAt?.toISOString() ?? null,
+              createdAt: link.createdAt.toISOString(),
+            }))}
+          />
           <div className="flex flex-wrap gap-2 pt-2">
             <Link href={`/admin/lessons/${lesson.id}/results`}>
               <Button variant="outline" size="sm">
