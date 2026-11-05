@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { getEnv } from "@/lib/env";
 
 export const STUDENT_COOKIE = "student_session";
+export const STUDENT_NAME_COOKIE = "student_name";
 export const STUDENT_SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const STUDENT_NAME_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export type StudentSession = {
   role: "student";
@@ -73,6 +75,21 @@ export async function getStudentSession(): Promise<StudentSession | null> {
   const token = store.get(STUDENT_COOKIE)?.value;
   if (!token) return null;
   return verifyStudentSessionToken(token);
+}
+
+export async function getStoredStudentName(): Promise<string | null> {
+  const store = await cookies();
+  return store.get(STUDENT_NAME_COOKIE)?.value ?? null;
+}
+
+export function studentNameCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: STUDENT_NAME_TTL_SECONDS,
+  };
 }
 
 export async function getStudentSessionFromRequest(request: Request): Promise<StudentSession | null> {

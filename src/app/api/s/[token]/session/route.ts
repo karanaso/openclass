@@ -6,8 +6,10 @@ import { displayStudentName, isValidStudentName, normalizeStudentName } from "@/
 import { resolveShareToken, hashShareToken } from "@/server/services/share-links";
 import {
   STUDENT_COOKIE,
+  STUDENT_NAME_COOKIE,
   createStudentSessionToken,
   studentCookieOptions,
+  studentNameCookieOptions,
 } from "@/server/auth/student";
 
 export const runtime = "nodejs";
@@ -38,6 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       classId: share.classId,
     });
     response.cookies.set(STUDENT_COOKIE, sessionToken, studentCookieOptions());
+    response.cookies.set(STUDENT_NAME_COOKIE, name, studentNameCookieOptions());
     return response;
   });
 }
@@ -45,13 +48,15 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 export async function DELETE(request: Request) {
   return withPublic(async () => {
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(STUDENT_COOKIE, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
+    for (const name of [STUDENT_COOKIE, STUDENT_NAME_COOKIE]) {
+      response.cookies.set(name, "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+    }
     return response;
   });
 }

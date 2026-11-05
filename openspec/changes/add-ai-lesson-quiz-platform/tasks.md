@@ -68,20 +68,20 @@
 - [x] 8.1 Implement per-page, per-locale TTS with duration measurement, and verify a mocked contract test writes audio and records durations.
 - [x] 8.2 Implement ffmpeg slide segments, concatenation, H.264/AAC output, poster extraction, and WebVTT captions, and verify a two-page smoke test produces a seekable MP4 with captions.
 - [x] 8.3 Orchestrate automatic primary-locale rendering and on-demand second-locale rendering, and verify both locale variants are exposed when complete.
-- [ ] 8.4 Add video status, unavailable state, and retry to the lesson detail and student tabs, and verify a failed render leaves the other modes usable.
+- [x] 8.4 Add video status, unavailable state, and retry to the lesson detail and student tabs, and verify a failed render leaves the other modes usable.
 - [x] 8.5 Enforce page, duration, size, and timeout limits with temp cleanup and disk checks, and verify an oversized lesson is skipped with a clear reason.
 - [x] 8.6 Document TTS voice and video settings in `docs/media.md`, and verify changing a voice produces a new render without regenerating questions.
 
 ## 9. Student Experience
 
-- [ ] 9.1 Implement share-link creation, hashing, revocation, expiry, and class/lesson scoping, and verify revoked and expired tokens are denied.
-- [ ] 9.2 Build the share landing and name-entry flow with a signed student session, and verify blank names are rejected and returning browsers get the stored name.
-- [ ] 9.3 Build the lesson shell with Cards, Video, Game, and Questionnaire tabs, deep links, and locale switching, and verify a Playwright test keeps the tab and locale across reload.
-- [ ] 9.4 Implement the card deck with reveal, keyboard and touch navigation, progress, and completion tracking, and verify Playwright plus keyboard-only accessibility checks.
-- [ ] 9.5 Implement the questionnaire with navigation, review, draft autosave, confirmation, submission, and feedback, and verify integration tests for grading and duplicate submission.
-- [ ] 9.6 Implement the game with ladder progression, 50:50, ask-the-audience, animation, sound, mute persistence, reduced motion, resume, and review, and verify answer-key leakage tests pass.
-- [ ] 9.7 Ensure student content requests select the correct locale variant and fall back visibly, and verify a lesson missing one variant shows the fallback notice.
-- [ ] 9.8 Run the student journeys at phone and tablet widths, and verify no horizontal scrolling or unreachable controls in Playwright viewport tests.
+- [x] 9.1 Implement share-link creation, hashing, revocation, expiry, and class/lesson scoping, and verify revoked and expired tokens are denied.
+- [x] 9.2 Build the share landing and name-entry flow with a signed student session, and verify blank names are rejected and returning browsers get the stored name.
+- [x] 9.3 Build the lesson shell with Cards, Video, Game, and Questionnaire tabs, deep links, and locale switching, and verify a Playwright test keeps the tab and locale across reload.
+- [x] 9.4 Implement the card deck with reveal, keyboard and touch navigation, progress, and completion tracking, and verify Playwright plus keyboard-only accessibility checks.
+- [x] 9.5 Implement the questionnaire with navigation, review, draft autosave, confirmation, submission, and feedback, and verify integration tests for grading and duplicate submission.
+- [x] 9.6 Implement the game with ladder progression, 50:50, ask-the-audience, animation, sound, mute persistence, reduced motion, resume, and review, and verify answer-key leakage tests pass.
+- [x] 9.7 Ensure student content requests select the correct locale variant and fall back visibly, and verify a lesson missing one variant shows the fallback notice.
+- [x] 9.8 Run the student journeys at phone and tablet widths, and verify no horizontal scrolling or unreachable controls in Playwright viewport tests.
 
 ## 10. Results and Analytics
 

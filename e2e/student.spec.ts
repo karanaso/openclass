@@ -43,6 +43,10 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await page.getByTestId("create-share-link").click();
   const shareUrl = await page.getByTestId("share-url").inputValue();
   expect(shareUrl).toContain("/el/s/");
+  const shareToken = shareUrl.split("/s/")[1];
+
+  const blankName = await page.request.post(`/api/s/${shareToken}/session`, { data: { name: "   " } });
+  expect(blankName.status()).toBe(422);
 
   await page.goto(shareUrl);
   await expect(page.getByTestId("student-name")).toBeVisible();
@@ -76,6 +80,8 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await page.getByTestId("tab-game").click();
   await page.getByTestId("game-start").click();
   await expect(page.getByTestId("game-question")).toBeVisible();
+  await page.getByRole("button", { name: "Σίγαση" }).click();
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("lessonlab:muted"))).toBe("1");
   await page.getByTestId("game-fifty").click();
   await expect(page.locator("[data-testid^=game-option-]")).toHaveCount(2);
   await page.getByTestId("game-option-a").click();
@@ -107,12 +113,25 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(page).toHaveURL(/\/en\/s\/.+\/lesson\//);
   await expect(page.getByTestId("tab-cards")).toContainText("Cards");
   await expect(page.getByTestId("tab-quiz")).toContainText("Quiz");
+  await expect(page.getByTestId("video-player")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("video-player")).toBeVisible();
 
   // Mobile layout
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId("tab-game")).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-  expect(overflow).toBe(true);
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 820, height: 1180 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByTestId("tab-game")).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+    expect(overflow).toBe(true);
+  }
+
+  // A returning browser is offered the stored name even after the session cookie is gone.
+  await page.context().clearCookies({ name: "student_session" });
+  await page.goto(shareUrl);
+  await expect(page.getByTestId("student-name")).toHaveValue(`Μαθήτρια ${suffix}`);
 
   // Teacher cleanup (the teacher session from the start of the test is still valid)
   await page.goto("/el/admin");
