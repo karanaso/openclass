@@ -50,6 +50,13 @@ export class LocalStorage {
     return safeStorageKey(key);
   }
 
+  async putFile(key: string, sourcePath: string): Promise<string> {
+    const destination = this.resolve(key);
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.copyFile(sourcePath, destination);
+    return safeStorageKey(key);
+  }
+
   getStream(key: string) {
     return createReadStream(this.resolve(key));
   }
