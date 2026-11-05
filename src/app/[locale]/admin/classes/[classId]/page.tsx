@@ -1,7 +1,9 @@
 import { ArrowLeft, BookOpen, FileText } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { LessonActions } from "@/components/admin/lesson-actions";
+import { LessonStatus } from "@/components/admin/lesson-status";
+import { LessonUploader } from "@/components/admin/lesson-uploader";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
@@ -52,9 +54,7 @@ export default async function ClassDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {t("uploadPlaceholder")}
-          </div>
+          <LessonUploader classId={classroom.id} />
         </CardContent>
       </Card>
 
@@ -100,19 +100,21 @@ export default async function ClassDetailPage({
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <StatusBadge status={lesson.status} />
-                      <Link href={`/admin/lessons/${lesson.id}`}>
-                        <Button size="sm" variant="outline">
-                          {t("openLesson")}
-                        </Button>
-                      </Link>
+                      <LessonStatus
+                        lessonId={lesson.id}
+                        initialStatus={lesson.status}
+                        initialFailureReason={lesson.failureReason}
+                      />
+                      <div className="flex items-center gap-2">
+                        <LessonActions lessonId={lesson.id} status={lesson.status} />
+                        <Link href={`/admin/lessons/${lesson.id}`}>
+                          <Button size="sm" variant="outline">
+                            {t("openLesson")}
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </CardHeader>
-                  {lesson.failureReason ? (
-                    <CardContent>
-                      <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{lesson.failureReason}</p>
-                    </CardContent>
-                  ) : null}
                 </Card>
               );
             })}

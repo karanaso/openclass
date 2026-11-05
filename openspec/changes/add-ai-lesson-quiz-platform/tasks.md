@@ -43,14 +43,14 @@
 
 ## 6. Upload and Ingestion
 
-- [ ] 6.1 Implement the local storage adapter with put, stream, stat, and prefix delete, and verify unit tests for collision-safe keys and path traversal rejection.
-- [ ] 6.2 Implement multi-file multipart upload with MIME, magic-byte, size, structure, and checksum checks, and verify integration tests for accepted, rejected, and mixed batches.
-- [ ] 6.3 Build the upload UI with drag-and-drop, multi-file selection, folder selection, and per-file error reporting, and verify a Playwright test shows partial acceptance.
-- [ ] 6.4 Set up BullMQ queues and the worker bootstrap with deterministic job IDs and status transitions, and verify an integration test moves a lesson from queued to a terminal state.
-- [ ] 6.5 Implement authenticated SSE status streaming with polling fallback, and verify status updates appear without a page reload.
-- [ ] 6.6 Implement retry and cancel endpoints and controls, and verify retry re-queues a failed lesson and cancel removes a queued job.
-- [ ] 6.7 Implement duplicate warning and teacher confirmation, and verify the same checksum in one class triggers the warning while a different class does not.
-- [ ] 6.8 Implement cancellation and deletion cleanup jobs, and verify no orphaned files remain after a cancelled lesson.
+- [x] 6.1 Implement the local storage adapter with put, stream, stat, and prefix delete, and verify unit tests for collision-safe keys and path traversal rejection.
+- [x] 6.2 Implement multi-file multipart upload with MIME, magic-byte, size, structure, and checksum checks, and verify integration tests for accepted, rejected, and mixed batches.
+- [x] 6.3 Build the upload UI with drag-and-drop, multi-file selection, folder selection, and per-file error reporting, and verify a Playwright test shows partial acceptance.
+- [x] 6.4 Set up BullMQ queues and the worker bootstrap with deterministic job IDs and status transitions, and verify an integration test moves a lesson from queued to a terminal state.
+- [x] 6.5 Implement authenticated SSE status streaming with polling fallback, and verify status updates appear without a page reload.
+- [x] 6.6 Implement retry and cancel endpoints and controls, and verify retry re-queues a failed lesson and cancel removes a queued job.
+- [x] 6.7 Implement duplicate warning and teacher confirmation, and verify the same checksum in one class triggers the warning while a different class does not.
+- [x] 6.8 Implement cancellation and deletion cleanup jobs, and verify no orphaned files remain after a cancelled lesson.
 
 ## 7. AI Generation Pipeline
 

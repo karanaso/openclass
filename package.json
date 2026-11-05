@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
-    "worker": "tsx src/worker/index.ts",
+    "worker": "node --env-file-if-exists=.env --import tsx src/worker/index.ts",
     "hash-password": "tsx src/scripts/hash-password.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
