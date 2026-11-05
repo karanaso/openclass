@@ -18,12 +18,12 @@
 
 ## 3. Teacher Authentication
 
-- [ ] 3.1 Implement the login page, credential verification, and signed HttpOnly session cookie, and verify success, failure, and missing-config integration tests pass.
-- [ ] 3.2 Guard all admin pages and admin APIs, and verify unauthenticated page requests redirect while API requests return 401.
-- [ ] 3.3 Implement logout, session expiry, and tampered-cookie rejection, and verify each case with integration tests.
-- [ ] 3.4 Add Redis-backed login throttling with lockout and counter reset, and verify threshold and reset tests pass.
-- [ ] 3.5 Add Origin checks for mutations plus baseline security headers, and verify a cross-origin admin mutation is rejected.
-- [ ] 3.6 Document password hashing and secret rotation in `docs/auth.md`, and verify the documented commands produce a working login.
+- [x] 3.1 Implement the login page, credential verification, and signed HttpOnly session cookie, and verify success, failure, and missing-config integration tests pass.
+- [x] 3.2 Guard all admin pages and admin APIs, and verify unauthenticated page requests redirect while API requests return 401.
+- [x] 3.3 Implement logout, session expiry, and tampered-cookie rejection, and verify each case with integration tests.
+- [x] 3.4 Add Redis-backed login throttling with lockout and counter reset, and verify threshold and reset tests pass.
+- [x] 3.5 Add Origin checks for mutations plus baseline security headers, and verify a cross-origin admin mutation is rejected.
+- [x] 3.6 Document password hashing and secret rotation in `docs/auth.md`, and verify the documented commands produce a working login.
 
 ## 4. Localization and App Shell
 

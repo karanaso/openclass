@@ -1,10 +1,17 @@
 import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getTeacherSession } from "@/server/auth/session";
 
-export default async function LoginPage() {
-  const t = await getTranslations("auth");
+export const dynamic = "force-dynamic";
+
+export default async function LoginPage({ params }: { params: Promise<{ locale: string }> }) {
+  const [{ locale }, t] = await Promise.all([params, getTranslations("auth")]);
+  if (await getTeacherSession()) {
+    redirect(`/${locale}/admin`);
+  }
 
   return (
     <div className="min-h-screen">
