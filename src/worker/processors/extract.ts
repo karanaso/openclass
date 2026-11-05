@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { AppError } from "@/lib/errors";
+import { detectContentLocale } from "@/lib/locale";
 import { prisma } from "@/server/db";
 import { extractPdfPages } from "@/server/pdf/extract";
 import { enqueueStage, type PipelineJob } from "@/server/queue";
@@ -24,12 +25,14 @@ export async function processExtract(data: PipelineJob): Promise<void> {
     );
   }
 
+  const sourceLocale = detectContentLocale(pages.map((page) => page.text).join("\n"), lesson.sourceLocale as "el" | "en");
+
   await prisma.$transaction([
     prisma.lessonPage.deleteMany({ where: { lessonId: lesson.id } }),
     prisma.lessonPage.createMany({
       data: pages.map((page) => ({ lessonId: lesson.id, pageNumber: page.pageNumber, text: page.text })),
     }),
-    prisma.lesson.update({ where: { id: lesson.id }, data: { pageCount: pages.length } }),
+    prisma.lesson.update({ where: { id: lesson.id }, data: { pageCount: pages.length, sourceLocale } }),
   ]);
 
   await setLessonStatus(lesson.id, "GENERATING");

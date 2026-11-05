@@ -14,6 +14,16 @@ export function normalizeLocale(value: string | undefined | null, fallback: Loca
   return fallback;
 }
 
+export function detectContentLocale(text: string, fallback: Locale = "el"): Locale {
+  const compact = text.replace(/\s/g, "");
+  if (compact.length === 0) return fallback;
+  const greek = (text.match(/[\u0370-\u03ff\u1f00-\u1fff]/g) ?? []).length;
+  const ratio = greek / compact.length;
+  if (ratio > 0.15) return "el";
+  if (ratio < 0.02) return "en";
+  return fallback;
+}
+
 export function negotiateLocale(input: {
   explicit?: string | null;
   stored?: string | null;

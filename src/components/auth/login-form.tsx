@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,11 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +65,7 @@ export function LoginForm() {
           onChange={(event) => setPassword(event.target.value)}
         />
       </div>
-      <Button type="submit" data-testid="login-submit" className="w-full" size="lg" disabled={pending}>
+      <Button type="submit" data-testid="login-submit" className="w-full" size="lg" disabled={pending || !hydrated}>
         {pending ? "…" : t("submit")}
       </Button>
     </form>

@@ -54,14 +54,14 @@
 
 ## 7. AI Generation Pipeline
 
-- [ ] 7.1 Implement page-tagged PDF text extraction with `unpdf`, and verify fixtures cover a normal PDF and an image-only PDF that fails with the unsupported message.
-- [ ] 7.2 Define strict structured-output schemas for bilingual cards, questionnaire items, game questions, and narration, and verify each fixture validates and rejects malformed payloads.
-- [ ] 7.3 Build the page-grounded prompt builder with token-budget chunking and prompt versioning, and verify unit tests preserve page references across chunks.
-- [ ] 7.4 Implement artifact validation for schema, counts, single correct answer, duplicates, source pages, and cross-locale alignment, and verify failing cases are rejected.
-- [ ] 7.5 Orchestrate generation with bounded retries, atomic publication, job records, and usage totals, and verify mocked-provider integration tests cover success, retry, and permanent failure.
-- [ ] 7.6 Expose generation status, failure reasons, regeneration, and usage in the lesson detail UI, and verify a mocked end-to-end run publishes and then replaces artifacts.
-- [ ] 7.7 Add per-lesson and per-class usage summaries, and verify totals match recorded token and cost values.
-- [ ] 7.8 Document model, prompt, and content-limit configuration in `docs/generation.md`, and verify a fresh lesson generates with the documented defaults.
+- [x] 7.1 Implement page-tagged PDF text extraction with `unpdf`, and verify fixtures cover a normal PDF and an image-only PDF that fails with the unsupported message.
+- [x] 7.2 Define strict structured-output schemas for bilingual cards, questionnaire items, game questions, and narration, and verify each fixture validates and rejects malformed payloads.
+- [x] 7.3 Build the page-grounded prompt builder with token-budget chunking and prompt versioning, and verify unit tests preserve page references across chunks.
+- [x] 7.4 Implement artifact validation for schema, counts, single correct answer, duplicates, source pages, and cross-locale alignment, and verify failing cases are rejected.
+- [x] 7.5 Orchestrate generation with bounded retries, atomic publication, job records, and usage totals, and verify mocked-provider integration tests cover success, retry, and permanent failure.
+- [x] 7.6 Expose generation status, failure reasons, regeneration, and usage in the lesson detail UI, and verify a mocked end-to-end run publishes and then replaces artifacts.
+- [x] 7.7 Add per-lesson and per-class usage summaries, and verify totals match recorded token and cost values.
+- [x] 7.8 Document model, prompt, and content-limit configuration in `docs/generation.md`, and verify a fresh lesson generates with the documented defaults.
 
 ## 8. Speech and Video
 
