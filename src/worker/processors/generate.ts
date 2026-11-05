@@ -1,6 +1,6 @@
-import { AppError } from "@/lib/errors";
+import { generateLessonContent } from "@/server/generation/orchestrator";
 import type { PipelineJob } from "@/server/queue";
 
-export async function processGenerate(_data: PipelineJob): Promise<void> {
-  throw new AppError("generation_unavailable", "Content generation is not available yet", 500);
+export async function processGenerate(data: PipelineJob): Promise<void> {
+  await generateLessonContent(data.lessonId);
 }

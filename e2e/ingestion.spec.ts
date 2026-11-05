@@ -45,10 +45,10 @@ test("teacher can upload PDFs, see live status, and handle duplicates", async ({
   await expect(page.getByTestId("upload-results")).toContainText("Απορρίφθηκαν");
   await expect(page.getByTestId("upload-results")).toContainText("Only PDF files are accepted");
 
-  await expect(page.getByTestId("lesson-status")).toHaveAttribute("data-status", "FAILED", { timeout: 25_000 });
+  await expect(page.getByTestId("lesson-status")).toHaveAttribute("data-status", "READY", { timeout: 25_000 });
 
-  await page.getByRole("button", { name: "Επανάληψη" }).first().click();
-  await expect(page.getByTestId("lesson-status")).toHaveAttribute("data-status", "FAILED", { timeout: 25_000 });
+  await page.getByRole("button", { name: "Επαναδημιουργία" }).first().click();
+  await expect(page.getByTestId("lesson-status")).toHaveAttribute("data-status", "READY", { timeout: 25_000 });
 
   await page.getByTestId("lesson-file-input").setInputFiles([pdfPath]);
   await expect(page.getByTestId("upload-results")).toContainText("Πιθανά διπλότυπα");

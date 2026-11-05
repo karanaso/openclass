@@ -42,6 +42,12 @@ export function LessonActions({ lessonId, status }: { lessonId: string; status: 
           {t("retry")}
         </Button>
       ) : null}
+      {status === "READY" ? (
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => act("/retry", "POST")}>
+          <RotateCcw className="h-4 w-4" aria-hidden />
+          {t("regenerate")}
+        </Button>
+      ) : null}
       {processing.has(status) ? (
         <Button size="sm" variant="outline" disabled={pending} onClick={() => act("/cancel", "POST")}>
           <X className="h-4 w-4" aria-hidden />
