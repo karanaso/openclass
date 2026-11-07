@@ -17,18 +17,34 @@ export const rawCardSchema = z.object({
   answer: localeTextSchema,
 });
 
-export const rawQuestionSchema = z.object({
+const rawQuestionBaseSchema = z.object({
   itemKey: z.string().trim().min(1).max(100),
-  type: z.enum(["TRUE_FALSE", "MULTIPLE_CHOICE"]),
   correctOptionId: z.string().trim().min(1).max(8),
   sourcePage: z.number().int().positive(),
   prompt: localeTextSchema,
-  options: z.object({
-    el: z.array(optionSchema).min(2).max(4),
-    en: z.array(optionSchema).min(2).max(4),
-  }),
   explanation: localeTextSchema,
 });
+
+export const rawTrueFalseQuestionSchema = rawQuestionBaseSchema.extend({
+  type: z.literal("TRUE_FALSE"),
+  options: z.object({
+    el: z.array(optionSchema).length(2),
+    en: z.array(optionSchema).length(2),
+  }),
+});
+
+export const rawMultipleChoiceQuestionSchema = rawQuestionBaseSchema.extend({
+  type: z.literal("MULTIPLE_CHOICE"),
+  options: z.object({
+    el: z.array(optionSchema).length(4),
+    en: z.array(optionSchema).length(4),
+  }),
+});
+
+export const rawQuestionSchema = z.discriminatedUnion("type", [
+  rawTrueFalseQuestionSchema,
+  rawMultipleChoiceQuestionSchema,
+]);
 
 export const rawNarrationSchema = z.object({
   pageNumber: z.number().int().positive(),

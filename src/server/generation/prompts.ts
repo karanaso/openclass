@@ -1,7 +1,7 @@
 import type { ContentCounts, PromptPage } from "./schemas";
 import type { GenerationInput, GenerationKind } from "./provider";
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 export const DEFAULT_MAX_CHARS = 48_000;
 
 export function chunkPages(pages: PromptPage[], maxChars = DEFAULT_MAX_CHARS): PromptPage[][] {
@@ -28,7 +28,7 @@ export function renderPageText(pages: PromptPage[]): string {
   return pages.map((page) => `[Page ${page.pageNumber}]\n${page.text}`).join("\n\n");
 }
 
-function instructions(kind: GenerationKind, counts: ContentCounts): string {
+function instructions(kind: GenerationKind, counts: ContentCounts, pages: PromptPage[]): string {
   const locale = "Every item MUST contain both a Greek (el) and English (en) variant with identical meaning, answer keys, option ids, and source page.";
   switch (kind) {
     case "cards":
@@ -36,9 +36,11 @@ function instructions(kind: GenerationKind, counts: ContentCounts): string {
     case "questionnaire":
       return `Create ${counts.questionnaire.min}-${counts.questionnaire.max} assessment questions mixing TRUE_FALSE and MULTIPLE_CHOICE. Each has itemKey, type, correctOptionId, sourcePage, prompt {el,en}, options {el:[{id,text}],en:[{id,text}]}, and explanation {el,en}. TRUE_FALSE has exactly two options with ids "a" and "b". MULTIPLE_CHOICE has exactly four options with ids "a","b","c","d". Exactly one option is correct and the same option id is correct in both locales. ${locale}`;
     case "game":
-      return `Create ${counts.game.min}-${counts.game.max} game questions ordered from easiest to hardest. Each has itemKey, type, correctOptionId, sourcePage, prompt {el,en}, options {el,en}, and explanation {el,en}. Prefer four-option MULTIPLE_CHOICE questions; TRUE_FALSE is allowed. Exactly one option is correct and the same option id is correct in both locales. ${locale}`;
-    case "narration":
-      return "Create one narration segment per PDF page, in page order. Each segment has pageNumber and script {el,en}. The script should be 2-4 spoken sentences that explain the page's content, not just read it verbatim. " + locale;
+      return `Create ${counts.game.min}-${counts.game.max} game questions ordered from easiest to hardest. Each has itemKey, type, correctOptionId, sourcePage, prompt {el,en}, options {el,en}, and explanation {el,en}. TRUE_FALSE has exactly two options with ids "a" and "b". MULTIPLE_CHOICE has exactly four options with ids "a","b","c","d". Exactly one option is correct and the same option id is correct in both locales. ${locale}`;
+    case "narration": {
+      const pageNumbers = pages.map((page) => page.pageNumber).join(", ");
+      return `Create exactly one narration segment for each of these PDF pages: ${pageNumbers}. Return exactly ${pages.length} segment(s), one per listed page, in ascending page order, with no repeated page numbers. Each segment has pageNumber and script {el,en}. The script should be 2-4 spoken sentences that explain the page's content, not just read it verbatim. ${locale}`;
+    }
   }
 }
 
@@ -47,7 +49,7 @@ export function buildPrompt(input: GenerationInput): { system: string; user: str
     "You are an expert teacher and assessment designer. You turn lesson PDF text into accurate, source-grounded learning content. Use only facts supported by the supplied page text. Never invent facts, names, numbers, or definitions. If the text is insufficient for an item, omit that item. Return only valid JSON matching the requested schema.";
   const user = [
     `Lesson primary language: ${input.sourceLocale === "el" ? "Greek" : "English"}.`,
-    instructions(input.kind, input.counts),
+    instructions(input.kind, input.counts, input.pages),
     "All sourcePage/sourcePage values must be page numbers that exist in the supplied text. Do not include page numbers outside the supplied pages.",
     "Source text:",
     renderPageText(input.pages),

@@ -7,6 +7,7 @@ import { enqueueStage } from "@/server/queue";
 import { publishArtifacts } from "@/server/repositories/publication";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { chunkPages, PROMPT_VERSION } from "./prompts";
+import { normalizeNarration } from "./narration";
 import { getContentProvider } from "./provider-factory";
 import type { ContentProvider, GenerationInput, ProviderUsage } from "./provider";
 import type { ContentCounts, PromptPage, RawCard, RawNarration, RawQuestion } from "./schemas";
@@ -139,7 +140,18 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
         usage.push(gameResult.usage);
 
         const narrationResult = await provider.narration(input);
-        narration.push(...narrationResult.items);
+        const normalizedNarration = normalizeNarration(narrationResult.items, chunk);
+        if (normalizedNarration.dropped.count > 0) {
+          logger.warn(
+            {
+              lessonId,
+              dropped: normalizedNarration.dropped.count,
+              pageNumbers: normalizedNarration.dropped.pageNumbers,
+            },
+            "dropped duplicate or out-of-scope narration segments",
+          );
+        }
+        narration.push(...normalizedNarration.segments);
         usage.push(narrationResult.usage);
       }
 

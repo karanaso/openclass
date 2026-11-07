@@ -122,6 +122,39 @@ describe("generation orchestration", () => {
     expect(classUsage.estimatedCostUsd).toBeCloseTo(job.estimatedCostUsd, 8);
   });
 
+  it("normalizes duplicate narration segments before publishing", async () => {
+    const { lesson } = await createLessonWithPages();
+    const base = new mockModule.MockContentProvider();
+    const duplicateNarration = {
+      cards: base.cards.bind(base),
+      questions: base.questions.bind(base),
+      narration: async (input: Parameters<typeof base.narration>[0]) => {
+        const result = await base.narration(input);
+        return {
+          items: result.items.flatMap((segment, index) =>
+            index === 0
+              ? [segment, { ...segment, pageNumber: 99 }, segment]
+              : [segment],
+          ),
+          usage: result.usage,
+        };
+      },
+    };
+
+    const result = await orchestrator.generateLessonContent(lesson.id, {
+      provider: duplicateNarration,
+      retryDelayMs: 0,
+    });
+
+    expect(result.artifacts.narration.map((segment) => segment.pageNumber)).toEqual([1, 2]);
+    const published = await prisma.narrationSegment.findMany({
+      where: { lessonId: lesson.id, locale: "en" },
+      orderBy: { pageNumber: "asc" },
+    });
+    expect(published.map((segment) => segment.pageNumber)).toEqual([1, 2]);
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).status).toBe("READY");
+  });
+
   it("replaces published artifacts on regeneration", async () => {
     const { lesson } = await createLessonWithPages();
     await orchestrator.generateLessonContent(lesson.id, {
