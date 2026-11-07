@@ -40,6 +40,18 @@
   }
 }
 
+@layer components {
+  /*
+   * Sticky top-level navigation.
+   * Keep the header a direct child of a non-scrolling ancestor: an ancestor with
+   * overflow hidden/auto would break position: sticky.
+   */
+  .app-header {
+    @apply sticky top-0 z-50 border-b bg-card/95 backdrop-blur-md;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

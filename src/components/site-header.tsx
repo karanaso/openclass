@@ -9,7 +9,7 @@ export async function SiteHeader({ showAdmin = false }: { showAdmin?: boolean })
   const nav = await getTranslations("nav");
 
   return (
-    <header className="border-b bg-card/70 backdrop-blur">
+    <header className="app-header">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="inline-flex items-center gap-2 font-bold">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">

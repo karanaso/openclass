@@ -94,7 +94,7 @@ export function CardDeck({
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {revealed ? t("correctAnswer") : t("reveal")}
         </p>
-        <p className="mt-4 text-xl font-semibold leading-relaxed" data-testid="card-text">
+        <p className="mt-4 break-words text-xl font-semibold leading-relaxed" data-testid="card-text">
           {revealed ? card.answer : card.prompt}
         </p>
         <p className="mt-8 inline-flex items-center gap-2 text-sm text-primary">
@@ -103,7 +103,7 @@ export function CardDeck({
         </p>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           variant="outline"
           disabled={index === 0}

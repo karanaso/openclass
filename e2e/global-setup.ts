@@ -5,7 +5,13 @@ let worker: ChildProcess | undefined;
 export default async function globalSetup() {
   worker = spawn("npm", ["run", "worker"], {
     cwd: process.cwd(),
-    env: { ...process.env, GENERATION_MAX_ATTEMPTS: "1", WORKER_AUTOSTART: "1" },
+    env: {
+      ...process.env,
+      AI_PROVIDER: "mock",
+      TTS_PROVIDER: "mock",
+      GENERATION_MAX_ATTEMPTS: "1",
+      WORKER_AUTOSTART: "1",
+    },
     stdio: "ignore",
     detached: true,
   });

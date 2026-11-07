@@ -41,7 +41,7 @@ export default async function ShareLandingPage({
 
   return (
     <div className="min-h-screen">
-      <header className="border-b bg-card/80">
+      <header className="app-header">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
           <Link href="/" className="inline-flex items-center gap-2 font-bold">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
