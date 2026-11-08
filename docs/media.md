@@ -17,6 +17,15 @@ The primary lesson locale is rendered automatically after content generation. A 
 - Audio is written under `lessons/<lessonId>/audio/<locale>/page-<n>.<ext>`.
 - Duration is measured with `ffprobe` and stored on the narration segment.
 
+## Student ambience
+
+The game and questionnaire share a looping background track at `public/audio/student-ambience.mp3`.
+
+- The loop is generated locally from a synthetic I–V–vi–IV progression, so it has no third-party license or network dependency. Regenerate it with `./scripts/generate-ambience.sh`; the script writes a 32-second, mono, 96 kbps file through ffmpeg.
+- It is served from the app origin at `/audio/student-ambience.mp3` and played at volume `0.16` under the game's sound effects.
+- Audio starts only after a student interaction. Muting, shared by the game and questionnaire, stores `lessonlab:muted` in `localStorage` (`"1"` muted, `"0"` unmuted) and defaults to sound on when the key is absent.
+- The ambient layer pauses while the tab is hidden and stops when a game or questionnaire session ends. A missing or blocked audio file leaves the activity fully usable and silent.
+
 ## Video
 
 - Slide images come from Poppler `pdftoppm` at 150 DPI, scaled to 1920-wide and letterboxed to 1920×1080.

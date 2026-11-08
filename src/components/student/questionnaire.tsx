@@ -1,12 +1,14 @@
 "use client";
 
-import { CheckCircle2, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Volume2, VolumeX, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { QuestionnaireResult, StudentQuestion } from "@/server/student/lesson-data";
+import { BalloonCelebration } from "./balloon-celebration";
+import { useStudentSound } from "./use-student-sound";
 
 type Props = {
   token: string;
@@ -35,6 +37,7 @@ export function Questionnaire({
   const [showResult, setShowResult] = useState(Boolean(existingResult && !canRetake));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { muted, toggleMute, startAmbience, stopAmbience } = useStudentSound();
   const startedAt = useRef(Date.now());
   const idempotencyKey = useRef(`quiz-${lessonId}-${Math.random().toString(36).slice(2)}-${Date.now()}`);
 
@@ -81,6 +84,7 @@ export function Questionnaire({
       }
       setResult(data.result);
       setShowResult(true);
+      stopAmbience();
     } catch {
       setError(t("unavailable"));
     } finally {
@@ -155,13 +159,30 @@ export function Questionnaire({
   }
 
   return (
-    <div className="space-y-4" data-testid="quiz">
+    <div
+      className="space-y-4"
+      data-testid="quiz"
+      onPointerDown={startAmbience}
+      onKeyDown={startAmbience}
+    >
+      <BalloonCelebration />
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{t("questionOf", { current: current + 1, total: questions.length })}</span>
-        <span>
-          {answeredCount}/{questions.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <span>
+            {answeredCount}/{questions.length}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={toggleMute}
+            aria-label={muted ? t("unmute") : t("mute")}
+            data-testid="quiz-mute"
+          >
+            {muted ? <VolumeX className="h-4 w-4" aria-hidden /> : <Volume2 className="h-4 w-4" aria-hidden />}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-2xl border bg-card p-6">

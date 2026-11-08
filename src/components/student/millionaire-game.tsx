@@ -3,10 +3,12 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { HelpCircle, Trophy, Users, Volume2, VolumeX } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BalloonCelebration } from "./balloon-celebration";
+import { useStudentSound } from "./use-student-sound";
 
 type Option = { id: string; text: string };
 type Question = { id: string; type: string; prompt: string; options: Option[] };
@@ -62,44 +64,7 @@ export function MillionaireGame({
   const [audience, setAudience] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const audio = useRef<AudioContext | null>(null);
-
-  useEffect(() => {
-    setMuted(window.localStorage.getItem("lessonlab:muted") === "1");
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      void audio.current?.close();
-    };
-  }, []);
-
-  function tone(frequency: number, duration = 0.15, type: OscillatorType = "sine") {
-    if (muted) return;
-    try {
-      audio.current ??= new AudioContext();
-      const context = audio.current;
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = type;
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.06, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + duration);
-    } catch {
-      // audio is optional
-    }
-  }
-
-  function toggleMute() {
-    const next = !muted;
-    setMuted(next);
-    window.localStorage.setItem("lessonlab:muted", next ? "1" : "0");
-  }
+  const { muted, toggleMute, startAmbience, stopAmbience, playTone } = useStudentSound();
 
   async function start() {
     setLoading(true);
@@ -119,7 +84,10 @@ export function MillionaireGame({
       setFeedback(null);
       setRemovedOptions([]);
       setAudience(null);
-      if (data.state.status === "ACTIVE") tone(440);
+      if (data.state.status === "ACTIVE") {
+        startAmbience();
+        playTone(440);
+      }
     } catch {
       setError(t("unavailable"));
     } finally {
@@ -147,18 +115,21 @@ export function MillionaireGame({
         return;
       }
       setFeedback(data.result);
-      tone(data.result.isCorrect ? 660 : 180, 0.3, data.result.isCorrect ? "sine" : "sawtooth");
+      playTone(data.result.isCorrect ? 660 : 180, 0.3, data.result.isCorrect ? "sine" : "sawtooth");
       const delay = reduceMotion ? 0 : 1400;
       window.setTimeout(() => {
         setState(data.state);
         setFeedback(null);
         setRemovedOptions([]);
         setAudience(null);
-        if (data.state.status === "ACTIVE") tone(440);
+        if (data.state.status === "ACTIVE") playTone(440);
         if (data.state.status === "COMPLETED") {
-          tone(523);
-          window.setTimeout(() => tone(659), 150);
-          window.setTimeout(() => tone(784), 300);
+          stopAmbience();
+          playTone(523);
+          window.setTimeout(() => playTone(659), 150);
+          window.setTimeout(() => playTone(784), 300);
+        } else if (data.state.status === "ENDED") {
+          stopAmbience();
         }
       }, delay);
     } catch {
@@ -184,10 +155,10 @@ export function MillionaireGame({
       setState((current) => (current && current.status === "ACTIVE" ? { ...current, lifelines: data.lifelines } : current));
       if (kind === "fiftyFifty") {
         setRemovedOptions(data.removedOptionIds ?? []);
-        tone(300, 0.2, "triangle");
+        playTone(300, 0.2, "triangle");
       } else {
         setAudience(data.distribution ?? {});
-        tone(520, 0.2, "triangle");
+        playTone(520, 0.2, "triangle");
       }
     } catch {
       setError(t("unavailable"));
@@ -270,6 +241,7 @@ export function MillionaireGame({
 
   return (
     <div className="space-y-4" data-testid="game">
+      <BalloonCelebration />
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -278,7 +250,13 @@ export function MillionaireGame({
             {t("score")}: {activeState.score}
           </Badge>
         </div>
-        <Button size="sm" variant="ghost" onClick={toggleMute} aria-label={muted ? t("unmute") : t("mute")}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={toggleMute}
+          aria-label={muted ? t("unmute") : t("mute")}
+          data-testid="game-mute"
+        >
           {muted ? <VolumeX className="h-4 w-4" aria-hidden /> : <Volume2 className="h-4 w-4" aria-hidden />}
         </Button>
       </div>

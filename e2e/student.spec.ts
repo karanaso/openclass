@@ -84,19 +84,39 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   expect(gameJson).not.toContain("explanation");
 
   // Game
+  const ambienceRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/audio/student-ambience.mp3")) ambienceRequests.push(request.url());
+  });
+  await page.clock.install();
+  await page.evaluate(() => {
+    Math.random = () => 0.5;
+  });
+
   await page.getByTestId("tab-game").click();
+  await expect(page.getByTestId("game-start")).toBeVisible();
+  expect(ambienceRequests).toHaveLength(0);
+
   await page.getByTestId("game-start").click();
   await expect(page.getByTestId("game-question")).toBeVisible();
-  await page.getByRole("button", { name: "Σίγαση" }).click();
+  await expect.poll(() => ambienceRequests.length).toBe(1);
+
+  await page.getByTestId("game-mute").click();
   await expect.poll(() => page.evaluate(() => window.localStorage.getItem("lessonlab:muted"))).toBe("1");
   await page.getByTestId("game-fifty").click();
   await expect(page.locator("[data-testid^=game-option-]")).toHaveCount(2);
+
+  // Deterministic Math.random makes the first balloon due at 22.5 seconds.
+  await page.clock.fastForward(22_500);
+  await expect(page.getByTestId("celebration-balloon")).toBeVisible();
   await page.getByTestId("game-option-a").click();
+  await page.clock.resume();
   await expect(page.getByTestId("game-score")).toContainText("1", { timeout: 10_000 });
 
   // Questionnaire
   await page.getByTestId("tab-quiz").click();
   await expect(page.getByTestId("quiz")).toBeVisible();
+  await expect(page.getByTestId("quiz-mute")).toHaveAttribute("aria-label", "Ήχος");
   page.on("dialog", (dialog) => dialog.accept());
   for (let index = 0; index < 25; index += 1) {
     if ((await page.getByTestId("quiz-question").count()) === 0) break;
