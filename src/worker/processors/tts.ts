@@ -53,7 +53,13 @@ export async function processTts(
   });
 
   if (options.enqueue !== false) {
-    await enqueueStage({ lessonId: lesson.id, stage: "render", version: data.version, locale });
+    await enqueueStage({
+      lessonId: lesson.id,
+      stage: "render",
+      version: data.version,
+      locale,
+      runId: data.runId,
+    });
   }
 }
 

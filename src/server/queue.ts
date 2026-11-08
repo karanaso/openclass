@@ -11,6 +11,7 @@ export type PipelineJob = {
   stage: PipelineStage;
   version: number;
   locale?: "el" | "en";
+  runId?: string;
 };
 
 let queue: Queue<PipelineJob> | null = null;
@@ -29,7 +30,9 @@ export function getLessonQueue(): Queue<PipelineJob> {
 }
 
 export function jobIdFor(input: PipelineJob): string {
-  return `${input.lessonId}-${input.stage}-${input.version}${input.locale ? `-${input.locale}` : ""}`;
+  return `${input.lessonId}-${input.stage}-${input.version}${input.locale ? `-${input.locale}` : ""}${
+    input.runId ? `-${input.runId}` : ""
+  }`;
 }
 
 export async function enqueueStage(input: PipelineJob, delayMs = 0): Promise<void> {

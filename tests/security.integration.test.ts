@@ -23,6 +23,8 @@ let adminClasses: typeof import("@/app/api/admin/classes/route");
 let adminShareLinks: typeof import("@/app/api/admin/share-links/route");
 let gameStart: typeof import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
 let eventsRoute: typeof import("@/app/api/admin/lessons/[lessonId]/events/route");
+let videoRoute: typeof import("@/app/api/admin/lessons/[lessonId]/video/route");
+let adminMediaRoute: typeof import("@/app/api/admin/lessons/[lessonId]/media/[locale]/[kind]/route");
 let mediaRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
 let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
 let loginRoute: typeof import("@/app/api/auth/login/route");
@@ -57,6 +59,8 @@ beforeAll(async () => {
   adminShareLinks = await import("@/app/api/admin/share-links/route");
   gameStart = await import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
   eventsRoute = await import("@/app/api/admin/lessons/[lessonId]/events/route");
+  videoRoute = await import("@/app/api/admin/lessons/[lessonId]/video/route");
+  adminMediaRoute = await import("@/app/api/admin/lessons/[lessonId]/media/[locale]/[kind]/route");
   mediaRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
   sessionRoute = await import("@/app/api/s/[token]/session/route");
   loginRoute = await import("@/app/api/auth/login/route");
@@ -246,6 +250,110 @@ describe("security smoke", () => {
       expect((await attempt("10.9.9.9")).status).toBe(401);
     }
     expect((await attempt("10.9.9.9")).status).toBe(429);
+  });
+
+  it("serves admin video previews only to teachers and scopes them to ready assets", async () => {
+    const lesson = await createLesson("Admin preview");
+    const storageKey = `lessons/${lesson.id}/video/en.mp4`;
+    const captionsKey = `lessons/${lesson.id}/video/en.vtt`;
+    const posterKey = `lessons/${lesson.id}/video/en.jpg`;
+    await prisma.videoAsset.create({
+      data: { lessonId: lesson.id, locale: "en", status: "READY", storageKey, captionsKey, posterKey },
+    });
+    await getStorage().put(storageKey, new Uint8Array(1000));
+    await getStorage().put(captionsKey, "WEBVTT\n");
+    await getStorage().put(posterKey, "jpeg");
+
+    const mediaRequest = (headers: Record<string, string> = {}, locale = "en") =>
+      new Request(`http://localhost:3000/api/admin/lessons/${lesson.id}/media/${locale}/video`, { headers });
+    const params = (locale = "en") => ({ params: Promise.resolve({ lessonId: lesson.id, locale, kind: "video" }) });
+
+    const anonymous = await adminMediaRoute.GET(mediaRequest(), params());
+    expect(anonymous.status).toBe(401);
+
+    const share = await shareService.createShareLink({ lessonId: lesson.id });
+    const asStudent = await adminMediaRoute.GET(
+      mediaRequest({ cookie: await studentSession(share.token) }),
+      params(),
+    );
+    expect(asStudent.status).toBe(401);
+
+    const full = await adminMediaRoute.GET(mediaRequest({ cookie: `teacher_session=${cookie}` }), params());
+    expect(full.status).toBe(200);
+    expect(full.headers.get("content-type")).toBe("video/mp4");
+    expect(full.headers.get("content-length")).toBe("1000");
+    expect(JSON.stringify([...full.headers.entries()])).not.toContain(storageKey);
+    await full.body?.cancel();
+
+    const ranged = await adminMediaRoute.GET(
+      mediaRequest({ cookie: `teacher_session=${cookie}`, range: "bytes=10-19" }),
+      params(),
+    );
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-range")).toBe("bytes 10-19/1000");
+    await ranged.body?.cancel();
+
+    const missingVariant = await adminMediaRoute.GET(
+      mediaRequest({ cookie: `teacher_session=${cookie}` }, "el"),
+      params("el"),
+    );
+    expect(missingVariant.status).toBe(404);
+
+    await prisma.videoAsset.update({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "en" } },
+      data: { status: "PENDING" },
+    });
+    const pending = await adminMediaRoute.GET(mediaRequest({ cookie: `teacher_session=${cookie}` }), params());
+    expect(pending.status).toBe(404);
+  });
+
+  it("queues a fresh re-render for a ready variant and rejects processing variants", async () => {
+    const lesson = await createLesson("Recreate");
+    await prisma.narrationSegment.create({
+      data: { lessonId: lesson.id, pageNumber: 1, locale: "en", script: "Narration" },
+    });
+    await prisma.videoAsset.create({ data: { lessonId: lesson.id, locale: "en", status: "READY" } });
+
+    const post = (headers: Record<string, string> = {}) =>
+      videoRoute.POST(
+        new Request(`http://localhost:3000/api/admin/lessons/${lesson.id}/video`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...headers },
+          body: JSON.stringify({ locale: "en" }),
+        }),
+        { params: Promise.resolve({ lessonId: lesson.id }) },
+      );
+    const teacherHeaders = { cookie: `teacher_session=${cookie}`, origin: "http://localhost:3000" };
+    const jobsForLesson = async () =>
+      (await queueModule.getLessonQueue().getJobs(["waiting", "delayed", "paused", "prioritized", "active"])).filter(
+        (job) => job?.data.lessonId === lesson.id,
+      );
+
+    const anonymous = await post();
+    expect(anonymous.status).toBe(401);
+    expect(await jobsForLesson()).toHaveLength(0);
+
+    const first = await post(teacherHeaders);
+    expect(first.status).toBe(202);
+    const second = await post(teacherHeaders);
+    expect(second.status).toBe(202);
+
+    const queued = await jobsForLesson();
+    expect(queued).toHaveLength(2);
+    const runIds = queued.map((job) => job?.data.runId);
+    expect(runIds.every(Boolean)).toBe(true);
+    expect(new Set(runIds).size).toBe(2);
+    expect(queued.every((job) => job && job.id === queueModule.jobIdFor(job.data))).toBe(true);
+
+    await prisma.videoAsset.update({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "en" } },
+      data: { status: "PENDING" },
+    });
+    const rejected = await post(teacherHeaders);
+    expect(rejected.status).toBe(409);
+    expect(await jobsForLesson()).toHaveLength(2);
+
+    await queueModule.removeJobsForLesson(lesson.id, lesson.jobVersion);
   });
 
   it("serves video range requests and reconnects SSE status streams", async () => {

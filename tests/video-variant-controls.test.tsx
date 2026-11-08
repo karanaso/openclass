@@ -1,0 +1,139 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { VideoVariantControls } from "@/components/admin/video-variant-controls";
+
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
+vi.mock("@/i18n/navigation", () => ({
+  useRouter: () => ({ refresh }),
+}));
+
+const fetchMock = vi.fn();
+
+beforeEach(() => {
+  refresh.mockReset();
+  fetchMock.mockReset();
+  fetchMock.mockResolvedValue({ ok: true, status: 202 });
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+function ready(locale = "el") {
+  return { locale, status: "READY", error: null };
+}
+
+describe("VideoVariantControls", () => {
+  it("shows Play and Recreate for a ready variant and Generate for a missing one", () => {
+    render(<VideoVariantControls lessonId="lesson-1" videos={[ready()]} />);
+
+    expect(screen.getByTestId("video-play-el")).toHaveTextContent("playVariant");
+    expect(screen.getByTestId("video-variant-el")).toHaveTextContent("recreateVariant");
+    expect(screen.getByTestId("video-variant-en")).toHaveTextContent("generateVariant");
+    expect(screen.queryByTestId("video-play-en")).not.toBeInTheDocument();
+  });
+
+  it("posts a recreate request for the selected locale and refreshes", async () => {
+    render(<VideoVariantControls lessonId="lesson-1" videos={[ready()]} />);
+
+    fireEvent.click(screen.getByTestId("video-variant-el"));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/lessons/lesson-1/video", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: "el" }),
+    });
+  });
+
+  it("posts a generate request when no variant exists", async () => {
+    render(<VideoVariantControls lessonId="lesson-1" videos={[]} />);
+
+    fireEvent.click(screen.getByTestId("video-variant-en"));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/lessons/lesson-1/video", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: "en" }),
+    });
+  });
+
+  it("opens one inline preview with video, poster, and captions", () => {
+    render(
+      <VideoVariantControls lessonId="lesson-1" videos={[ready("el"), ready("en")]} />,
+    );
+
+    fireEvent.click(screen.getByTestId("video-play-el"));
+
+    const preview = screen.getByTestId("video-preview-el");
+    expect(preview).toHaveAttribute(
+      "poster",
+      "/api/admin/lessons/lesson-1/media/el/poster",
+    );
+    expect(preview.querySelector("source")).toHaveAttribute(
+      "src",
+      "/api/admin/lessons/lesson-1/media/el/video",
+    );
+    expect(preview.querySelector("track")).toHaveAttribute(
+      "src",
+      "/api/admin/lessons/lesson-1/media/el/captions",
+    );
+
+    fireEvent.click(screen.getByTestId("video-play-en"));
+    expect(screen.queryByTestId("video-preview-el")).not.toBeInTheDocument();
+    expect(screen.getByTestId("video-preview-en")).toBeInTheDocument();
+  });
+
+  it("reports an unavailable preview when the video fails to load", () => {
+    render(<VideoVariantControls lessonId="lesson-1" videos={[ready()]} />);
+
+    fireEvent.click(screen.getByTestId("video-play-el"));
+    fireEvent.error(screen.getByTestId("video-preview-el"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("videoPreviewUnavailable");
+  });
+
+  it("shows Recreate and the recorded error for failed and skipped variants", () => {
+    render(
+      <VideoVariantControls
+        lessonId="lesson-1"
+        videos={[
+          { locale: "el", status: "FAILED", error: "render failed" },
+          { locale: "en", status: "SKIPPED", error: "too long" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("render failed")).toBeInTheDocument();
+    expect(screen.getByText("too long")).toBeInTheDocument();
+    expect(screen.getByTestId("video-variant-el")).toHaveTextContent("recreateVariant");
+    expect(screen.getByTestId("video-variant-en")).toHaveTextContent("recreateVariant");
+    expect(screen.queryByTestId("video-play-el")).not.toBeInTheDocument();
+  });
+
+  it("disables actions while a variant is processing", () => {
+    render(
+      <VideoVariantControls
+        lessonId="lesson-1"
+        videos={[
+          { locale: "el", status: "PENDING", error: null },
+          { locale: "en", status: "RENDERING", error: null },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("video-recreate-el")).toBeDisabled();
+    expect(screen.getByTestId("video-recreate-en")).toBeDisabled();
+    expect(screen.queryByTestId("video-play-el")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("video-play-en")).not.toBeInTheDocument();
+  });
+});

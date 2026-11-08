@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { json, withAdmin } from "@/server/http";
 import { prisma } from "@/server/db";
@@ -17,7 +18,10 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
       const body = bodySchema.parse(await request.json());
       const lesson = await prisma.lesson.findUnique({
         where: { id: lessonId },
-        include: { narration: { where: { locale: body.locale }, select: { id: true } } },
+        include: {
+          narration: { where: { locale: body.locale }, select: { id: true } },
+          videos: { where: { locale: body.locale }, select: { status: true } },
+        },
       });
       if (!lesson) throw new AppError("not_found", "Lesson not found", 404);
       if (lesson.status === "CANCELLED") throw new AppError("cancelled", "Lesson was cancelled", 409);
@@ -25,7 +29,18 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
         throw new AppError("no_narration", `No narration is available for ${body.locale}`, 422);
       }
 
-      await enqueueStage({ lessonId, stage: "tts", version: lesson.jobVersion, locale: body.locale });
+      const current = lesson.videos[0];
+      if (current?.status === "PENDING" || current?.status === "RENDERING") {
+        throw new AppError("video_processing", "This video variant is already processing", 409);
+      }
+
+      await enqueueStage({
+        lessonId,
+        stage: "tts",
+        version: lesson.jobVersion,
+        locale: body.locale,
+        runId: randomUUID(),
+      });
       return json({ queued: true, locale: body.locale }, 202);
     },
     { mutation: true },

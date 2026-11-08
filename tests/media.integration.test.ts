@@ -296,6 +296,100 @@ describe("speech and video", () => {
     expect(detail.visual?.status).toBe("READY");
   });
 
+  it("reuses the visual set when a ready variant is re-rendered without a version bump", async () => {
+    const lesson = await createMediaLesson("Recreate video");
+    const firstProvider = new CountingImageProvider();
+    await tts.processTts({ lessonId: lesson.id, stage: "tts", version: 0, locale: "el" }, { enqueue: false });
+    await render.processRender(
+      { lessonId: lesson.id, stage: "render", version: 0, locale: "el" },
+      { imageProvider: firstProvider },
+    );
+    expect(firstProvider.sceneCalls).toBe(1);
+
+    const visualBefore = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    const secondProvider = new CountingImageProvider();
+    await tts.processTts(
+      { lessonId: lesson.id, stage: "tts", version: 0, locale: "el", runId: "recreate-1" },
+      { enqueue: false },
+    );
+    await render.processRender(
+      { lessonId: lesson.id, stage: "render", version: 0, locale: "el", runId: "recreate-1" },
+      { imageProvider: secondProvider },
+    );
+
+    expect(secondProvider.sceneCalls).toBe(0);
+    expect(secondProvider.sheetCalls).toBe(0);
+
+    const video = await prisma.videoAsset.findUniqueOrThrow({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } },
+    });
+    expect(video.status).toBe("READY");
+    const visualAfter = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(visualAfter.id).toBe(visualBefore.id);
+    expect(visualAfter.jobVersion).toBe(visualBefore.jobVersion);
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).jobVersion).toBe(lesson.jobVersion);
+  });
+
+  it("isolates a re-render failure to the affected locale", async () => {
+    const lesson = await createMediaLesson("Recreate failure");
+    await prisma.card.create({
+      data: {
+        lessonId: lesson.id,
+        itemKey: "recreate-card",
+        position: 0,
+        sourcePage: 1,
+        translations: { create: [{ locale: "el", prompt: "Ερώτηση", answer: "Απάντηση" }] },
+      },
+    });
+    await prisma.question.create({
+      data: {
+        lessonId: lesson.id,
+        mode: "QUESTIONNAIRE",
+        itemKey: "recreate-question",
+        position: 0,
+        type: "MULTIPLE_CHOICE",
+        correctOptionId: "a",
+        sourcePage: 1,
+        translations: {
+          create: [
+            {
+              locale: "el",
+              prompt: "Ερώτηση;",
+              options: [
+                { id: "a", text: "A" },
+                { id: "b", text: "B" },
+              ],
+              explanation: "Επειδή",
+            },
+          ],
+        },
+      },
+    });
+
+    await tts.processTts({ lessonId: lesson.id, stage: "tts", version: 0, locale: "el" }, { enqueue: false });
+    await render.processRender({ lessonId: lesson.id, stage: "render", version: 0, locale: "el" });
+    await tts.processTts({ lessonId: lesson.id, stage: "tts", version: 0, locale: "en" }, { enqueue: false });
+
+    const missingAudio = await prisma.narrationSegment.findUniqueOrThrow({
+      where: { lessonId_pageNumber_locale: { lessonId: lesson.id, pageNumber: 1, locale: "en" } },
+    });
+    await getStorage().delete(missingAudio.audioKey!);
+    await render.processRender({ lessonId: lesson.id, stage: "render", version: 0, locale: "en" });
+
+    const elVideo = await prisma.videoAsset.findUniqueOrThrow({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } },
+    });
+    const enVideo = await prisma.videoAsset.findUniqueOrThrow({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "en" } },
+    });
+    expect(elVideo.status).toBe("READY");
+    expect(enVideo.status).toBe("FAILED");
+    expect(enVideo.error).toMatch(/missing/i);
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).status).toBe("READY");
+    expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(1);
+    expect(await prisma.question.count({ where: { lessonId: lesson.id } })).toBe(1);
+  });
+
   it("reuses one visual set across locales and regenerates it only for a new version", async () => {
     const lesson = await createMediaLesson("Visual reuse");
     const provider = new CountingImageProvider();

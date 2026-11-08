@@ -50,6 +50,12 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   await page.getByRole("link", { name: "Άνοιγμα μαθήματος" }).first().click();
   await expect(page).toHaveURL(/\/el\/admin\/lessons\//);
+  const playVariant = page.locator('[data-testid^="video-play-"]').first();
+  await expect(playVariant).toBeVisible();
+  const readyLocale = (await playVariant.getAttribute("data-testid"))!.replace("video-play-", "");
+  await expect(page.getByTestId(`video-variant-${readyLocale}`)).toBeVisible();
+  await playVariant.click();
+  await expect(page.getByTestId(`video-preview-${readyLocale}`)).toBeVisible();
   await page.getByTestId("create-share-link").click();
   const shareUrl = await page.getByTestId("share-url").inputValue();
   expect(shareUrl).toContain("/el/s/");
