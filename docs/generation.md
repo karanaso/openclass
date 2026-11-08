@@ -47,6 +47,12 @@ Before publication, the pipeline rejects content when:
 
 A failed generation retries up to `GENERATION_MAX_ATTEMPTS` with backoff. Publication is atomic: a failed regeneration leaves the previously published artifacts untouched. A permanent failure marks the lesson `FAILED` and records the reason on the generation job.
 
+## Manual card editing
+
+After a lesson is `READY`, the teacher can edit any published card's prompt and answer in both Greek and English from the lesson detail page. Saves are per card and update both locale variants together; blank or missing text is rejected. Edits take effect for students on their next deck load and do not change questions, narration, video, or card order.
+
+Regeneration still replaces the whole deck. When a new generation is published, manually edited card text is discarded, so the editor warns the teacher about this before they edit.
+
 ## Long documents
 
 Page-tagged text is chunked at roughly 48k characters. Each chunk keeps `[Page N]` markers. Per-chunk counts are scaled and merged, then the global count limits are applied before validation.

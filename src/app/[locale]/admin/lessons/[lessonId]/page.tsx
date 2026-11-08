@@ -1,6 +1,7 @@
 import { ArrowLeft, BookOpen, Bot, FileText, ListChecks, Video } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { CardEditor } from "@/components/admin/card-editor";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { ShareLinkManager } from "@/components/admin/share-link-manager";
@@ -9,6 +10,7 @@ import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
 import { getLessonDetail } from "@/server/services/classes";
+import { listLessonCards } from "@/server/services/cards";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,8 @@ export default async function LessonDetailPage({
   } catch {
     notFound();
   }
+
+  const cards = await listLessonCards(lesson.id);
 
   const tokens = lesson.jobs.reduce((sum, job) => sum + job.inputTokens + job.outputTokens, 0);
   const cost = lesson.jobs.reduce((sum, job) => sum + job.estimatedCostUsd, 0);
@@ -174,6 +178,8 @@ export default async function LessonDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <CardEditor lessonId={lesson.id} cards={cards} editable={lesson.status === "READY"} />
 
       <Card>
         <CardHeader>
