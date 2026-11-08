@@ -21,6 +21,33 @@ test("teacher can create, rename, reorder, and delete classes", async ({ page })
   await page.goto(`/el/admin/lessons/${demoLesson!.id}`);
   await expect(page.getByRole("heading", { name: "Demo Lesson" })).toBeVisible();
   await expect(page.getByText("Παραγόμενο περιεχόμενο")).toBeVisible();
+
+  const renamedTitle = `Demo Lesson ${suffix}`;
+  try {
+    await page.getByTestId("edit-lesson-title").click();
+    await page.getByTestId("lesson-title-input").fill(renamedTitle);
+    await page.getByTestId("save-lesson-title").click();
+    await expect(page.getByRole("heading", { name: renamedTitle })).toBeVisible();
+
+    const renamedResponse = await page.request.get(`/api/admin/lessons/${demoLesson!.id}`);
+    expect(renamedResponse.status()).toBe(200);
+    const renamedBody = (await renamedResponse.json()) as {
+      lesson: { title: string; originalFilename: string };
+    };
+    expect(renamedBody.lesson.title).toBe(renamedTitle);
+    expect(renamedBody.lesson.originalFilename).toBe("demo.pdf");
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: renamedTitle })).toBeVisible();
+  } finally {
+    const restore = await page.request.patch(`/api/admin/lessons/${demoLesson!.id}`, {
+      data: { title: "Demo Lesson" },
+    });
+    expect(restore.ok()).toBeTruthy();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Demo Lesson" })).toBeVisible();
+  }
+
   await page.goto("/el/admin");
 
   await page.getByTestId("new-class-name").fill(nameA);

@@ -16,6 +16,7 @@ let classesRoute: typeof import("@/app/api/admin/classes/route");
 let classRoute: typeof import("@/app/api/admin/classes/[classId]/route");
 let orderRoute: typeof import("@/app/api/admin/classes/order/route");
 let lessonsRoute: typeof import("@/app/api/admin/classes/[classId]/lessons/route");
+let lessonRoute: typeof import("@/app/api/admin/lessons/[lessonId]/route");
 
 function request(pathname: string, init: RequestInit = {}, withAuth = true) {
   const headers = new Headers(init.headers);
@@ -43,6 +44,7 @@ beforeAll(async () => {
   classRoute = await import("@/app/api/admin/classes/[classId]/route");
   orderRoute = await import("@/app/api/admin/classes/order/route");
   lessonsRoute = await import("@/app/api/admin/classes/[classId]/lessons/route");
+  lessonRoute = await import("@/app/api/admin/lessons/[lessonId]/route");
   const session = await import("@/server/auth/session");
   cookie = await session.createSessionToken();
 }, 120_000);
@@ -93,6 +95,48 @@ describe("class service", () => {
     const detailB = await services.getLessonDetail(lessonB.id);
     expect(detailA.classId).toBe(a.id);
     expect(detailB.classId).toBe(b.id);
+  });
+
+  it("renames a lesson, trims the title, and keeps the original filename", async () => {
+    const classroom = await services.createClass({ name: "Rename service" });
+    const lesson = await createLessonFor(classroom.id, "Rename source", "checksum-rename-service");
+
+    const updated = await services.updateLessonTitle(lesson.id, { title: "  Renamed lesson  " });
+    expect(updated.title).toBe("Renamed lesson");
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.title).toBe("Renamed lesson");
+    expect(stored.originalFilename).toBe("Rename source.pdf");
+  });
+
+  it("rejects blank, overlong, and unknown lesson titles", async () => {
+    const classroom = await services.createClass({ name: "Rename validation" });
+    const lesson = await createLessonFor(classroom.id, "Validate source", "checksum-rename-validation");
+
+    await expect(services.updateLessonTitle(lesson.id, { title: "   " })).rejects.toThrow();
+    await expect(services.updateLessonTitle(lesson.id, { title: "x".repeat(201) })).rejects.toThrow();
+    await expect(services.updateLessonTitle("missing", { title: "Valid" })).rejects.toMatchObject({
+      code: "not_found",
+    });
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.title).toBe("Validate source");
+  });
+
+  it("exposes an edited title to the student lesson data", async () => {
+    const classroom = await services.createClass({ name: "Student title" });
+    const lesson = await createLessonFor(classroom.id, "Student source", "checksum-student-title");
+    await services.updateLessonTitle(lesson.id, { title: "Student-facing title" });
+
+    const { loadLessonForStudent } = await import("@/server/student/lesson-data");
+    const data = await loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "en",
+      token: "test-token",
+      normalizedStudentName: "student",
+    });
+
+    expect(data?.lesson.title).toBe("Student-facing title");
   });
 
   it("deletes a class, its lessons, and its files", async () => {
@@ -148,6 +192,85 @@ describe("class APIs", () => {
     const body = await response.json();
     expect(body.lessons).toHaveLength(1);
     expect(body.lessons[0].title).toBe("Scoped A");
+  });
+
+  it("renames a lesson through the API, trims the title, and keeps the original filename", async () => {
+    const classroom = await services.createClass({ name: "API rename" });
+    const lesson = await createLessonFor(classroom.id, "API rename source", "checksum-api-rename");
+
+    const response = await lessonRoute.PATCH(
+      request(`/api/admin/lessons/${lesson.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "  API renamed  " }),
+      }),
+      { params: Promise.resolve({ lessonId: lesson.id }) },
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.lesson.title).toBe("API renamed");
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.title).toBe("API renamed");
+    expect(stored.originalFilename).toBe("API rename source.pdf");
+  });
+
+  it("rejects invalid lesson renames and unknown lessons", async () => {
+    const classroom = await services.createClass({ name: "API rename validation" });
+    const lesson = await createLessonFor(classroom.id, "API validate source", "checksum-api-validate");
+    const params = { params: Promise.resolve({ lessonId: lesson.id }) };
+
+    const blank = await lessonRoute.PATCH(
+      request(`/api/admin/lessons/${lesson.id}`, { method: "PATCH", body: JSON.stringify({ title: "   " }) }),
+      params,
+    );
+    expect(blank.status).toBe(422);
+
+    const overlong = await lessonRoute.PATCH(
+      request(`/api/admin/lessons/${lesson.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "x".repeat(201) }),
+      }),
+      params,
+    );
+    expect(overlong.status).toBe(422);
+
+    const missing = await lessonRoute.PATCH(
+      request("/api/admin/lessons/missing", { method: "PATCH", body: JSON.stringify({ title: "Valid" }) }),
+      { params: Promise.resolve({ lessonId: "missing" }) },
+    );
+    expect(missing.status).toBe(404);
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.title).toBe("API validate source");
+  });
+
+  it("requires authentication and same-origin for lesson renames", async () => {
+    const classroom = await services.createClass({ name: "API rename auth" });
+    const lesson = await createLessonFor(classroom.id, "API auth source", "checksum-api-auth");
+    const params = { params: Promise.resolve({ lessonId: lesson.id }) };
+
+    const anonymous = await lessonRoute.PATCH(
+      request(`/api/admin/lessons/${lesson.id}`, { method: "PATCH", body: JSON.stringify({ title: "Nope" }) }, false),
+      params,
+    );
+    expect(anonymous.status).toBe(401);
+
+    const crossOrigin = await lessonRoute.PATCH(
+      new Request(`http://localhost:3000/api/admin/lessons/${lesson.id}`, {
+        method: "PATCH",
+        headers: {
+          cookie: `teacher_session=${cookie}`,
+          origin: "https://evil.example",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ title: "Nope" }),
+      }),
+      params,
+    );
+    expect(crossOrigin.status).toBe(401);
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.title).toBe("API auth source");
   });
 
   it("requires authentication and same-origin mutations", async () => {

@@ -18,6 +18,14 @@ export const classUpdateSchema = classInputSchema.partial();
 
 export type ClassInput = z.infer<typeof classInputSchema>;
 
+export const lessonTitleSchema = z
+  .string()
+  .trim()
+  .min(1, "Lesson title is required")
+  .max(200, "Lesson title must be 200 characters or fewer");
+
+export const lessonTitleUpdateSchema = z.object({ title: lessonTitleSchema });
+
 export async function listClasses(db: PrismaClient = defaultPrisma) {
   return db.class.findMany({
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
@@ -121,6 +129,13 @@ export async function getLessonDetail(id: string, db: PrismaClient = defaultPris
   });
   if (!lesson) throw new NotFoundError("Lesson not found");
   return lesson;
+}
+
+export async function updateLessonTitle(id: string, input: unknown, db: PrismaClient = defaultPrisma) {
+  const parsed = lessonTitleUpdateSchema.parse(input);
+  const existing = await db.lesson.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw new NotFoundError("Lesson not found");
+  return db.lesson.update({ where: { id }, data: { title: parsed.title } });
 }
 
 export async function listLessonsForClass(classId: string, db: PrismaClient = defaultPrisma) {

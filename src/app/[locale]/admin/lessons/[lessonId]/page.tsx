@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CardEditor } from "@/components/admin/card-editor";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
+import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
 import { ShareLinkManager } from "@/components/admin/share-link-manager";
 import { VideoVariantControls } from "@/components/admin/video-variant-controls";
 import { Link } from "@/i18n/navigation";
@@ -51,7 +52,7 @@ export default async function LessonDetailPage({
         </Link>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{lesson.title}</h1>
+            <LessonTitleEditor lessonId={lesson.id} initialTitle={lesson.title} />
             <p className="mt-1 text-muted-foreground">
               {lesson.originalFilename} · {lesson.pageCount ?? 0} {t("pages").toLowerCase()} ·{" "}
               {formatDate(lesson.createdAt, locale as Locale)}
