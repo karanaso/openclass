@@ -15,6 +15,22 @@ This writes:
 
 Keep backups off the host.
 
+### Single-container images
+
+The Compose backup scripts assume separate PostgreSQL and media volumes. For the all-in-one image, stop the container before copying `/data` so PostgreSQL is quiesced:
+
+```bash
+docker stop lessonlab
+docker run --rm \
+  -v lessonlab-data:/data \
+  -v "$PWD/backups:/backup" \
+  --entrypoint tar lessonlab:all-in-one \
+  czf "/backup/allinone-$(date +%Y%m%d-%H%M%S).tar.gz" -C /data .
+docker start lessonlab
+```
+
+The archive contains PostgreSQL (`/data/postgres`), Redis (`/data/redis`), and media (`/data/media`). Do not copy the live volume or the running PostgreSQL data directory, and keep the archive off the host.
+
 ## Restore
 
 ```bash

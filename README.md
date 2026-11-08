@@ -47,6 +47,32 @@ docker compose up -d
 
 See `docs/deployment.md` and `docs/operations.md`.
 
+## Single container
+
+The `all-in-one` target bundles the web app, worker, PostgreSQL 16, and Redis into one image for demos, evaluation, and small single-node deployments. It needs no PostgreSQL, Redis, or Compose on the host.
+
+```bash
+docker build --target all-in-one -t lessonlab:all-in-one .
+
+docker run -d --name lessonlab \
+  -p 3000:3000 \
+  -e AUTH_SECRET="$(openssl rand -base64 48)" \
+  -e TEACHER_PASSWORD='change-me' \
+  -e OPENAI_API_KEY='sk-...' \
+  -e APP_BASE_URL='http://localhost:3000' \
+  -v lessonlab-data:/data \
+  lessonlab:all-in-one
+
+curl -fsS http://localhost:3000/api/health
+docker logs -f lessonlab
+```
+
+To run without an OpenAI key, add `-e AI_PROVIDER=mock -e TTS_PROVIDER=mock`.
+
+Everything persistent (PostgreSQL, Redis, uploads, and rendered media) lives under `/data`, so keep the `lessonlab-data` volume. The first start initializes the database and applies migrations; later starts reuse it. Stop with `docker stop lessonlab`.
+
+This mode is not a replacement for the Compose stack: it does not scale horizontally and has no built-in replication or backup. See `docs/deployment.md#single-container-mode` for configuration, upgrades, backups, and limitations, and run `./scripts/docker-push.sh` to publish the image to Docker Hub.
+
 ## Tests
 
 ```bash
