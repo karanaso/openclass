@@ -41,10 +41,12 @@ export async function cancelLesson(
   await storage.deletePrefix(`lessons/${lessonId}/pages`).catch(() => undefined);
   await storage.deletePrefix(`lessons/${lessonId}/audio`).catch(() => undefined);
   await storage.deletePrefix(`lessons/${lessonId}/video`).catch(() => undefined);
+  await storage.deletePrefix(`lessons/${lessonId}/visual`).catch(() => undefined);
   await db.card.deleteMany({ where: { lessonId } });
   await db.question.deleteMany({ where: { lessonId } });
   await db.narrationSegment.deleteMany({ where: { lessonId } });
   await db.videoAsset.deleteMany({ where: { lessonId } });
+  await db.lessonVisual.deleteMany({ where: { lessonId } });
 
   return updated;
 }

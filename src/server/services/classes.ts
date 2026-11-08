@@ -122,6 +122,7 @@ export async function getLessonDetail(id: string, db: PrismaClient = defaultPris
       class: true,
       jobs: { orderBy: { createdAt: "asc" } },
       videos: true,
+      visual: true,
       shareLinks: true,
       pages: { select: { pageNumber: true }, orderBy: { pageNumber: "asc" } },
       _count: { select: { cards: true, questions: true, attempts: true, deckViews: true } },

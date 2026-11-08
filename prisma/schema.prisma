@@ -21,6 +21,7 @@ enum JobStage {
   EXTRACT
   GENERATE
   TTS
+  VISUAL
   RENDER
 }
 
@@ -47,6 +48,13 @@ enum VideoStatus {
   READY
   FAILED
   SKIPPED
+}
+
+enum VisualStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
 }
 
 enum AttemptMode {
@@ -102,6 +110,7 @@ model Lesson {
   questions  Question[]
   narration  NarrationSegment[]
   videos     VideoAsset[]
+  visual     LessonVisual?
   shareLinks ShareLink[]
   attempts   Attempt[]
   drafts     AttemptDraft[]
@@ -239,6 +248,25 @@ model VideoAsset {
 
   @@unique([lessonId, locale])
   @@index([lessonId, status])
+}
+
+model LessonVisual {
+  id                String       @id @default(cuid())
+  lessonId          String       @unique
+  status            VisualStatus @default(PENDING)
+  jobVersion        Int          @default(0)
+  sceneKey          String?
+  characterSheetKey String?
+  characterLoopKey  String?
+  model             String?
+  promptVersion     String?
+  error             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }
 
 model ShareLink {

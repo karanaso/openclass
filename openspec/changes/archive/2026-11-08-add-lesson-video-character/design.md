@@ -63,7 +63,7 @@ After download:
 1. Verify dimensions are 1024×1024 (or the configured exact size), width equals height, and the PNG has an alpha channel.
 2. Slice into four equal cells with ffmpeg `crop`.
 3. Reject the visual if slicing or alpha validation fails; never guess a grid.
-4. Build a 6-second loop at 30 fps as VP9 `yuva420p` WebM: neutral hold, blink, neutral hold, wave, neutral hold. If the alpha WebM encoder is unavailable, retry with a PNG-in-MOV alpha loop; if that also fails, mark the visual failed and use the standard video layout.
+4. Build a 6-second loop at 30 fps as VP9 `yuva420p` WebM: neutral hold, blink, neutral hold, wave, neutral hold. Decode it with the explicit `libvpx-vp9` decoder during composition, because ffmpeg's native VP9 decoder in current builds drops the alpha plane. If the alpha WebM encoder is unavailable, retry with a PNG-in-MOV alpha loop; if that also fails, mark the visual failed and use the standard video layout.
 
 - **Why:** generated grids can be inconsistent; strict validation keeps a bad sheet from producing a broken overlay. VP9 alpha is compact and supported by the bundled ffmpeg; MOV/PNG is a safe fallback.
 - Frames are normalized by using the same cell geometry for each pose. The prompt asks for consistent character placement; small imperfections are acceptable for a stylized loop.

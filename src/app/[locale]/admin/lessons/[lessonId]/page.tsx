@@ -176,6 +176,33 @@ export default async function LessonDetailPage({
                 error: video.error,
               }))}
             />
+            <div className="flex items-center justify-between gap-2 border-t pt-2">
+              <span>{t("characterStatus")}</span>
+              <Badge
+                variant={
+                  lesson.visual?.status === "READY"
+                    ? "success"
+                    : lesson.visual?.status === "FAILED"
+                      ? "destructive"
+                      : lesson.visual
+                        ? "warning"
+                        : "secondary"
+                }
+              >
+                {lesson.visual?.status === "READY"
+                  ? t("characterReady")
+                  : lesson.visual?.status === "FAILED"
+                    ? t("characterUnavailable")
+                    : lesson.visual
+                      ? t("characterGenerating")
+                      : t("characterNotGenerated")}
+              </Badge>
+            </div>
+            {lesson.visual?.status === "FAILED" && lesson.visual.error ? (
+              <p className="break-words text-xs text-muted-foreground" title={lesson.visual.error}>
+                {lesson.visual.error.slice(0, 180)}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

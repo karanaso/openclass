@@ -7,6 +7,8 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { prisma as defaultPrisma } from "@/server/db";
 import { renderPdfPageImages } from "@/server/media/ffmpeg";
+import type { ImageProvider } from "@/server/media/image";
+import { ensureLessonVisual } from "@/server/media/lesson-visual";
 import { composeLessonVideo, type SlideInput } from "@/server/media/render-video";
 import type { PipelineJob } from "@/server/queue";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
@@ -28,7 +30,7 @@ async function markVideo(
 
 export async function processRender(
   data: PipelineJob,
-  options: { db?: PrismaClient; storage?: LocalStorage } = {},
+  options: { db?: PrismaClient; storage?: LocalStorage; imageProvider?: ImageProvider | null } = {},
 ): Promise<void> {
   const db = options.db ?? defaultPrisma;
   const storage = options.storage ?? getStorage();
@@ -107,7 +109,11 @@ export async function processRender(
 
     const workDir = await mkdtemp(path.join(os.tmpdir(), "lessonlab-video-"));
     try {
-      const composed = await composeLessonVideo({ slides, workDir });
+      const visual = await ensureLessonVisual(
+        { id: lesson.id, title: lesson.title, jobVersion: lesson.jobVersion, pages: lesson.pages },
+        { db, storage, provider: options.imageProvider },
+      );
+      const composed = await composeLessonVideo({ slides, workDir, visual });
       const videoKey = `lessons/${lesson.id}/video/${locale}.mp4`;
       const captionsKey = `lessons/${lesson.id}/video/${locale}.vtt`;
       const posterKey = `lessons/${lesson.id}/video/${locale}.jpg`;

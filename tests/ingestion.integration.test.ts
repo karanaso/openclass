@@ -178,7 +178,7 @@ describe("lesson control", () => {
     worker = createPipelineWorker();
 
     let finalStatus = "QUEUED";
-    for (let attempt = 0; attempt < 80; attempt += 1) {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
       const lesson = await prisma.lesson.findUniqueOrThrow({ where: { id: lessonId } });
       finalStatus = lesson.status;
       if (["READY", "FAILED", "CANCELLED"].includes(finalStatus)) break;

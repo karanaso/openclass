@@ -44,6 +44,32 @@ export async function probeDurationMs(filePath: string): Promise<number> {
   }
 }
 
+export type ImageInfo = {
+  width: number;
+  height: number;
+  pixFmt: string;
+};
+
+export async function probeImageInfo(filePath: string): Promise<ImageInfo> {
+  try {
+    const { stdout } = await execFileAsync(
+      "ffprobe",
+      ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,pix_fmt", "-of", "json", filePath],
+      { timeout: 30_000 },
+    );
+    const parsed = JSON.parse(stdout) as { streams?: Array<{ width?: number; height?: number; pix_fmt?: string }> };
+    const stream = parsed.streams?.[0];
+    if (!stream?.width || !stream.height || !stream.pix_fmt) throw new Error("missing image metadata");
+    return { width: stream.width, height: stream.height, pixFmt: stream.pix_fmt };
+  } catch (error) {
+    throw new AppError(
+      "ffprobe_failed",
+      `Could not read image dimensions: ${error instanceof Error ? error.message.slice(0, 200) : "unknown error"}`,
+      500,
+    );
+  }
+}
+
 export async function renderPdfPageImages(
   pdfPath: string,
   outputDirectory: string,

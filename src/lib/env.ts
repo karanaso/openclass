@@ -12,8 +12,11 @@ const envSchema = z
     OPENAI_API_KEY: z.string().min(1).optional(),
     AI_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
     TTS_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
+    IMAGE_PROVIDER: z.enum(["openai", "mock", "disabled"]).optional(),
     OPENAI_TEXT_MODEL: z.string().default("gpt-4.1-mini"),
     OPENAI_TTS_MODEL: z.string().default("gpt-4o-mini-tts"),
+    OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
+    OPENAI_IMAGE_QUALITY: z.enum(["low", "medium", "high", "auto"]).default("medium"),
     OPENAI_TTS_VOICE_EL: z.string().default("alloy"),
     OPENAI_TTS_VOICE_EN: z.string().default("alloy"),
     STORAGE_ROOT: z.string().default("./data"),
@@ -55,6 +58,14 @@ const envSchema = z
         message: "OPENAI_API_KEY is required when TTS_PROVIDER=openai",
       });
     }
+    const imageProvider = value.IMAGE_PROVIDER ?? value.AI_PROVIDER;
+    if (imageProvider === "openai" && !value.OPENAI_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["OPENAI_API_KEY"],
+        message: "OPENAI_API_KEY is required when IMAGE_PROVIDER=openai",
+      });
+    }
     if (value.CARD_MIN > value.CARD_MAX) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["CARD_MIN"], message: "CARD_MIN must be <= CARD_MAX" });
     }
@@ -71,6 +82,14 @@ const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+export type ImageProviderMode = "openai" | "mock" | "disabled";
+
+export function effectiveImageProvider(
+  env: Pick<Env, "IMAGE_PROVIDER" | "AI_PROVIDER">,
+): ImageProviderMode {
+  return env.IMAGE_PROVIDER ?? env.AI_PROVIDER;
+}
 
 let cached: Env | null = null;
 
