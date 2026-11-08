@@ -3,6 +3,7 @@ import { prisma as defaultPrisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { createAttempt } from "@/server/repositories/attempts";
 import { pickTranslation } from "./lesson-data";
+import { getLessonQuestionnaireSummary } from "./class-summary";
 
 export type SubmittedAnswer = { questionId: string; optionId: string };
 
@@ -130,5 +131,6 @@ export async function buildQuestionnaireResult(attemptId: string, locale: string
     durationMs: attempt.durationMs,
     completedAt: (attempt.completedAt ?? attempt.createdAt).toISOString(),
     feedback,
+    classSummary: await getLessonQuestionnaireSummary(attempt.lessonId, attempt.percentage, db),
   };
 }

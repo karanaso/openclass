@@ -46,6 +46,17 @@ export async function findCompletedAttempt(
   });
 }
 
+export async function listCompletedQuestionnairePercentages(
+  lessonId: string,
+  db: PrismaClient = defaultPrisma,
+): Promise<number[]> {
+  const attempts = await db.attempt.findMany({
+    where: { lessonId, mode: "QUESTIONNAIRE", completedAt: { not: null } },
+    select: { percentage: true },
+  });
+  return attempts.map((attempt) => attempt.percentage);
+}
+
 export async function createAttempt(input: CreateAttemptInput, db: PrismaClient = defaultPrisma) {
   try {
     return await db.$transaction(async (tx) => {

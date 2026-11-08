@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { QuizCelebration } from "@/components/student/quiz-celebration";
 import type { QuestionnaireResult, StudentQuestion } from "@/server/student/lesson-data";
 import { BalloonCelebration } from "./balloon-celebration";
 import { useStudentSound } from "./use-student-sound";
@@ -35,6 +36,7 @@ export function Questionnaire({
   const [current, setCurrent] = useState(0);
   const [result, setResult] = useState<QuestionnaireResult | null>(existingResult);
   const [showResult, setShowResult] = useState(Boolean(existingResult && !canRetake));
+  const [celebrate, setCelebrate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { muted, toggleMute, startAmbience, stopAmbience } = useStudentSound();
@@ -84,6 +86,7 @@ export function Questionnaire({
       }
       setResult(data.result);
       setShowResult(true);
+      setCelebrate(data.blocked !== true);
       stopAmbience();
     } catch {
       setError(t("unavailable"));
@@ -96,6 +99,7 @@ export function Questionnaire({
     setAnswers({});
     setResult(null);
     setShowResult(false);
+    setCelebrate(false);
     setCurrent(0);
     startedAt.current = Date.now();
     idempotencyKey.current = `quiz-${lessonId}-${Math.random().toString(36).slice(2)}-${Date.now()}`;
@@ -103,8 +107,11 @@ export function Questionnaire({
 
   if (showResult && result) {
     const questionById = new Map(questions.map((item) => [item.id, item]));
+    const classSummary = result.classSummary;
+    const maxBandCount = classSummary ? Math.max(1, ...classSummary.distribution.map((item) => item.count)) : 1;
     return (
       <div className="space-y-4" data-testid="quiz-result">
+        <QuizCelebration active={celebrate} label={t("celebrationLabel")} />
         <div className="rounded-2xl border bg-card p-6 text-center">
           <p className="text-sm text-muted-foreground">{t("resultTitle")}</p>
           <p className="mt-2 text-4xl font-black">
@@ -121,6 +128,66 @@ export function Questionnaire({
               </Button>
             </div>
           ) : null}
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5" data-testid="quiz-class-summary">
+          <p className="font-semibold">{t("classComparison")}</p>
+          {classSummary ? (
+            <>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl bg-secondary/60 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{t("classAttempts", { count: classSummary.attempts })}</p>
+                </div>
+                <div className="rounded-xl bg-secondary/60 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{t("classAverage")}</p>
+                  <p className="text-xl font-bold">{classSummary.average}%</p>
+                </div>
+                <div className="rounded-xl bg-secondary/60 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{t("classHighest")}</p>
+                  <p className="text-xl font-bold">{classSummary.highest}%</p>
+                </div>
+                <div className="rounded-xl bg-secondary/60 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{t("classLowest")}</p>
+                  <p className="text-xl font-bold">{classSummary.lowest}%</p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-xs font-medium text-muted-foreground">{t("classDistribution")}</p>
+                <div className="mt-2 space-y-1.5">
+                  {classSummary.distribution.map((item) => {
+                    const active = item.band === classSummary.currentBand;
+                    return (
+                      <div
+                        key={item.band}
+                        data-testid={`quiz-band-${item.band}`}
+                        data-active={active ? "true" : "false"}
+                        className={active ? "rounded-md ring-1 ring-primary/40" : undefined}
+                      >
+                        <div className="flex items-center justify-between px-1 text-xs">
+                          <span className={active ? "font-semibold text-primary" : "text-muted-foreground"}>
+                            {item.band}%
+                          </span>
+                          <span className={active ? "font-semibold text-primary" : "text-muted-foreground"}>{item.count}</span>
+                        </div>
+                        <div className="mt-0.5 h-2 rounded bg-secondary">
+                          <div
+                            className={`h-2 rounded ${active ? "bg-primary" : "bg-primary/40"}`}
+                            style={{ width: `${Math.round((item.count / maxBandCount) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("classYourBand", { band: classSummary.currentBand })}
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">{t("classNotEnough")}</p>
+          )}
         </div>
 
         <div className="space-y-3">

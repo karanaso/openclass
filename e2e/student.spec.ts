@@ -1,8 +1,18 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { PrismaClient } from "@prisma/client";
 import { expect, test } from "@playwright/test";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+
+function databaseUrl() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const envFile = readFileSync(".env", "utf8");
+  const match = envFile.match(/^DATABASE_URL=(.+)$/m);
+  if (!match) throw new Error("DATABASE_URL is not configured");
+  return match[1].trim();
+}
 
 async function makePdf(filePath: string, title: string) {
   const document = await PDFDocument.create();
@@ -57,6 +67,32 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   const lessonUrl = page.url();
   const token = lessonUrl.split("/s/")[1].split("/")[0];
   const lessonId = lessonUrl.split("/lesson/")[1];
+
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl() } } });
+  try {
+    for (const [label, percentage] of [
+      ["Classmate A", 40],
+      ["Classmate B", 80],
+    ] as const) {
+      await prisma.attempt.create({
+        data: {
+          lessonId,
+          studentName: `${label} ${suffix}`,
+          normalizedStudentName: `${label.toLowerCase().replace(" ", "-")}-${suffix}`,
+          mode: "QUESTIONNAIRE",
+          locale: "el",
+          score: Math.round((percentage / 100) * 5),
+          maxScore: 5,
+          percentage,
+          passed: percentage >= 60,
+          durationMs: 1000,
+          completedAt: new Date(),
+        },
+      });
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
 
   // Cards
   await page.getByTestId("tab-cards").click();
@@ -130,6 +166,17 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   }
   await page.getByTestId("quiz-submit").first().click();
   await expect(page.getByTestId("quiz-result")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("quiz-celebration")).toBeVisible();
+
+  const classSummary = page.getByTestId("quiz-class-summary");
+  await expect(classSummary).toBeVisible();
+  await expect(classSummary).toContainText("Προσπάθειες: 3");
+  await expect(classSummary).toContainText("Μέσος όρος");
+  await expect(classSummary).toContainText("Υψηλότερο");
+  await expect(classSummary).toContainText("Χαμηλότερο");
+  await expect(classSummary).toContainText("Κατανομή βαθμολογιών");
+  await expect(classSummary).not.toContainText("Classmate A");
+  await expect(classSummary).not.toContainText("Classmate B");
 
   // Video
   await page.getByTestId("tab-video").click();

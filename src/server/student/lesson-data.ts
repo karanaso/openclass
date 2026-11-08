@@ -1,6 +1,7 @@
 import type { Prisma, QuestionType } from "@prisma/client";
 import { prisma } from "@/server/db";
 import type { Locale } from "@/lib/locale";
+import { getLessonQuestionnaireSummary, type ClassSummary } from "./class-summary";
 
 export type StudentOption = { id: string; text: string };
 export type StudentQuestion = { id: string; type: QuestionType; prompt: string; options: StudentOption[] };
@@ -22,6 +23,7 @@ export type QuestionnaireResult = {
   durationMs: number;
   completedAt: string;
   feedback: StudentFeedback[];
+  classSummary: ClassSummary | null;
 };
 export type StudentVideo = {
   locale: string;
@@ -178,6 +180,7 @@ export async function loadLessonForStudent(input: {
       durationMs: existingAttempt.durationMs,
       completedAt: existingAttempt.completedAt?.toISOString() ?? existingAttempt.createdAt.toISOString(),
       feedback,
+      classSummary: await getLessonQuestionnaireSummary(lesson.id, existingAttempt.percentage),
     };
   }
 

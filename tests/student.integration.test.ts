@@ -16,6 +16,8 @@ let game: typeof import("@/server/student/game");
 let lessonData: typeof import("@/server/student/lesson-data");
 let session: typeof import("@/server/auth/student");
 let queueModule: typeof import("@/server/queue");
+let attemptsRepository: typeof import("@/server/repositories/attempts");
+let classSummary: typeof import("@/server/student/class-summary");
 
 beforeAll(async () => {
   infra = await startTestInfra();
@@ -40,6 +42,8 @@ beforeAll(async () => {
   game = await import("@/server/student/game");
   lessonData = await import("@/server/student/lesson-data");
   session = await import("@/server/auth/student");
+  attemptsRepository = await import("@/server/repositories/attempts");
+  classSummary = await import("@/server/student/class-summary");
 }, 120_000);
 
 afterAll(async () => {
@@ -172,6 +176,112 @@ describe("student session", () => {
   });
 });
 
+describe("questionnaire class summary data", () => {
+  it("reads only completed questionnaire percentages for the lesson", async () => {
+    const { lesson } = await createLessonFixture();
+    const attemptBase = {
+      lessonId: lesson.id,
+      studentName: "Maria",
+      normalizedStudentName: "maria",
+      locale: "el",
+      score: 4,
+      maxScore: 5,
+      percentage: 80,
+      passed: true,
+      durationMs: 1000,
+    };
+
+    await prisma.attempt.create({ data: { ...attemptBase, mode: "QUESTIONNAIRE", completedAt: new Date() } });
+    await prisma.attempt.create({ data: { ...attemptBase, mode: "QUESTIONNAIRE", completedAt: null } });
+    await prisma.attempt.create({ data: { ...attemptBase, mode: "GAME", completedAt: new Date() } });
+    await prisma.attemptDraft.create({
+      data: {
+        lessonId: lesson.id,
+        normalizedStudentName: "maria",
+        locale: "el",
+        answers: {},
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const percentages = await attemptsRepository.listCompletedQuestionnairePercentages(lesson.id);
+    expect(percentages).toEqual([80]);
+  });
+
+  it("computes aggregate statistics and bands from completed attempts, counting retakes", async () => {
+    const { lesson } = await createLessonFixture();
+    const percentages = [100, 75, 50, 20];
+    for (const [index, percentage] of percentages.entries()) {
+      await prisma.attempt.create({
+        data: {
+          lessonId: lesson.id,
+          studentName: "Maria",
+          normalizedStudentName: "maria",
+          mode: "QUESTIONNAIRE",
+          locale: "el",
+          score: Math.round(percentage / 20),
+          maxScore: 5,
+          percentage,
+          passed: percentage >= 60,
+          durationMs: 1000,
+          completedAt: new Date(Date.now() + index),
+        },
+      });
+    }
+
+    const summary = await classSummary.getLessonQuestionnaireSummary(lesson.id, 75);
+    expect(summary).not.toBeNull();
+    expect(summary?.attempts).toBe(4);
+    expect(summary?.average).toBe(61);
+    expect(summary?.highest).toBe(100);
+    expect(summary?.lowest).toBe(20);
+    expect(summary?.currentBand).toBe("60-79");
+    expect(summary?.distribution).toEqual([
+      { band: "0-19", count: 0 },
+      { band: "20-39", count: 1 },
+      { band: "40-59", count: 1 },
+      { band: "60-79", count: 1 },
+      { band: "80-100", count: 1 },
+    ]);
+  });
+
+  it("suppresses the summary below three completed attempts", async () => {
+    const { lesson } = await createLessonFixture();
+    await prisma.attempt.create({
+      data: {
+        lessonId: lesson.id,
+        studentName: "Maria",
+        normalizedStudentName: "maria",
+        mode: "QUESTIONNAIRE",
+        locale: "el",
+        score: 3,
+        maxScore: 5,
+        percentage: 60,
+        passed: true,
+        durationMs: 1000,
+        completedAt: new Date(),
+      },
+    });
+    await prisma.attempt.create({
+      data: {
+        lessonId: lesson.id,
+        studentName: "Nikos",
+        normalizedStudentName: "nikos",
+        mode: "QUESTIONNAIRE",
+        locale: "el",
+        score: 4,
+        maxScore: 5,
+        percentage: 80,
+        passed: true,
+        durationMs: 1000,
+        completedAt: new Date(),
+      },
+    });
+
+    expect(await classSummary.getLessonQuestionnaireSummary(lesson.id, 60)).toBeNull();
+  });
+});
+
 describe("questionnaire grading", () => {
   it("grades answers, returns feedback, and blocks a second attempt", async () => {
     const { lesson } = await createLessonFixture();
@@ -249,6 +359,85 @@ describe("questionnaire grading", () => {
       passThreshold: 60,
     });
     expect(newAttempt.result.attemptId).not.toBe(first.result.attemptId);
+  });
+
+  it("returns the same class summary from submission and a reloaded result", async () => {
+    const { lesson } = await createLessonFixture();
+    const questions = await prisma.question.findMany({
+      where: { lessonId: lesson.id, mode: "QUESTIONNAIRE" },
+      orderBy: { position: "asc" },
+    });
+
+    for (const [name, normalizedName, percentage] of [
+      ["Nikos", "nikos", 60],
+      ["Eleni", "eleni", 20],
+    ] as const) {
+      await prisma.attempt.create({
+        data: {
+          lessonId: lesson.id,
+          studentName: name,
+          normalizedStudentName: normalizedName,
+          mode: "QUESTIONNAIRE",
+          locale: "el",
+          score: Math.round((percentage / 100) * questions.length),
+          maxScore: questions.length,
+          percentage,
+          passed: percentage >= 60,
+          durationMs: 1000,
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    const submitted = await questionnaire.submitQuestionnaire({
+      lessonId: lesson.id,
+      studentName: "Maria",
+      normalizedStudentName: "maria",
+      locale: "el",
+      answers: questions.map((question) => ({ questionId: question.id, optionId: "a" })),
+      durationMs: 1000,
+      idempotencyKey: "class-summary-1",
+      retakeEnabled: false,
+      passThreshold: 60,
+    });
+
+    expect(submitted.result.classSummary).toEqual({
+      attempts: 3,
+      average: 60,
+      highest: 100,
+      lowest: 20,
+      distribution: [
+        { band: "0-19", count: 0 },
+        { band: "20-39", count: 1 },
+        { band: "40-59", count: 0 },
+        { band: "60-79", count: 1 },
+        { band: "80-100", count: 1 },
+      ],
+      currentBand: "80-100",
+    });
+
+    const loaded = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "el",
+      token: "test-token",
+      normalizedStudentName: "maria",
+    });
+    expect(loaded?.existingResult?.classSummary).toEqual(submitted.result.classSummary);
+
+    const summaryPayload = JSON.stringify(submitted.result.classSummary);
+    expect(summaryPayload).not.toContain("Maria");
+    expect(summaryPayload).not.toContain("maria");
+    expect(summaryPayload).not.toContain("Nikos");
+    expect(summaryPayload).not.toContain("nikos");
+    expect(summaryPayload).not.toContain("Eleni");
+    expect(summaryPayload).not.toContain("eleni");
+    expect(summaryPayload).not.toContain("attemptId");
+    expect(summaryPayload).not.toContain("studentName");
+    expect(summaryPayload).not.toContain("normalizedStudentName");
+    expect(summaryPayload).not.toContain("answers");
+    expect(Object.keys(submitted.result.classSummary ?? {}).sort()).toEqual(
+      ["attempts", "average", "currentBand", "distribution", "highest", "lowest"].sort(),
+    );
   });
 });
 
