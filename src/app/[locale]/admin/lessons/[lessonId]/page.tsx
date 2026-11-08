@@ -1,7 +1,12 @@
 import { ArrowLeft, BookOpen, Bot, FileText, ListChecks, Video } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { CardEditor } from "@/components/admin/card-editor";
+import {
+  GeneratedContentActions,
+  GeneratedContentCounts,
+  GeneratedContentEditorProvider,
+  GeneratedContentEditors,
+} from "@/components/admin/generated-content-editor";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
@@ -12,6 +17,7 @@ import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
 import { getLessonDetail } from "@/server/services/classes";
 import { listLessonCards } from "@/server/services/cards";
+import { listLessonQuestions } from "@/server/services/questions";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,13 +41,17 @@ export default async function LessonDetailPage({
     notFound();
   }
 
-  const cards = await listLessonCards(lesson.id);
+  const [cards, questions] = await Promise.all([listLessonCards(lesson.id), listLessonQuestions(lesson.id)]);
 
   const tokens = lesson.jobs.reduce((sum, job) => sum + job.inputTokens + job.outputTokens, 0);
   const cost = lesson.jobs.reduce((sum, job) => sum + job.estimatedCostUsd, 0);
 
   return (
-    <div className="space-y-8">
+    <GeneratedContentEditorProvider
+      initialCardCount={lesson._count.cards}
+      initialQuestionCount={lesson._count.questions}
+    >
+      <div className="space-y-8">
       <div>
         <Link
           href={`/admin/classes/${lesson.classId}`}
@@ -117,18 +127,16 @@ export default async function LessonDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BookOpen className="h-4 w-4" aria-hidden />
-              {t("artifacts")}
-            </CardTitle>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BookOpen className="h-4 w-4" aria-hidden />
+                {t("artifacts")}
+              </CardTitle>
+              <GeneratedContentActions />
+            </div>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 text-sm">
-            <p>
-              {t("cardsCount")}: <strong>{lesson._count.cards}</strong>
-            </p>
-            <p>
-              {t("questionsCount")}: <strong>{lesson._count.questions}</strong>
-            </p>
+            <GeneratedContentCounts />
             <p>
               {t("results")}: <strong>{lesson._count.attempts}</strong>
             </p>
@@ -207,7 +215,12 @@ export default async function LessonDetailPage({
         </Card>
       </div>
 
-      <CardEditor lessonId={lesson.id} cards={cards} editable={lesson.status === "READY"} />
+      <GeneratedContentEditors
+        lessonId={lesson.id}
+        cards={cards}
+        questions={questions}
+        editable={lesson.status === "READY"}
+      />
 
       <Card>
         <CardHeader>
@@ -236,6 +249,7 @@ export default async function LessonDetailPage({
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </GeneratedContentEditorProvider>
   );
 }

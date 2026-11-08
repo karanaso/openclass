@@ -19,6 +19,10 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
   const greekAnswer = `Επεξεργασμένη απάντηση ${suffix}`;
   const englishPrompt = `Edited prompt ${suffix}`;
   const englishAnswer = `Edited answer ${suffix}`;
+  const newGreekPrompt = `Νέα κάρτα ${suffix}`;
+  const newGreekAnswer = `Νέα απάντηση ${suffix}`;
+  const newEnglishPrompt = `New card ${suffix}`;
+  const newEnglishAnswer = `New answer ${suffix}`;
 
   try {
     const classroom = await prisma.class.create({ data: { name: `Card editing class ${suffix}` } });
@@ -59,7 +63,10 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     await page.goto(`/el/admin/lessons/${lesson.id}`);
     await expect(page.getByRole("heading", { name: lesson.title })).toBeVisible();
 
-    // The editor is available for a ready lesson and warns about regeneration.
+    // The editor stays hidden until the Generated content action opens it.
+    await expect(page.getByTestId("card-editor")).toHaveCount(0);
+    await page.getByTestId("edit-cards-button").click();
+    await expect(page.getByTestId("edit-cards-button")).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByTestId("card-editor")).toBeVisible();
     await expect(page.getByTestId("card-editor")).toContainText("Η επαναδημιουργία μαθήματος αντικαθιστά την τράπουλα");
     await expect(page.getByTestId("card-0-el-prompt")).toHaveValue("Αρχική ερώτηση");
@@ -71,14 +78,30 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     await page.getByTestId("card-save-0").click();
     await expect(page.getByText("Η κάρτα αποθηκεύτηκε.")).toBeVisible({ timeout: 15_000 });
 
-    // Persisted in the editor after a reload.
+    // Persisted in the editor after a reload, still behind the edit action.
     await page.reload();
+    await expect(page.getByTestId("card-editor")).toHaveCount(0);
+    await page.getByTestId("edit-cards-button").click();
     await expect(page.getByTestId("card-0-el-prompt")).toHaveValue(greekPrompt);
     await expect(page.getByTestId("card-0-el-answer")).toHaveValue(greekAnswer);
     await expect(page.getByTestId("card-0-en-prompt")).toHaveValue(englishPrompt);
     await expect(page.getByTestId("card-0-en-answer")).toHaveValue(englishAnswer);
 
-    // Students see the edited text on their next deck load without regeneration.
+    // A new card can be added at the end of the deck.
+    await page.getByTestId("new-card-source-page").fill("1");
+    await page.getByTestId("new-card-el-prompt").fill(newGreekPrompt);
+    await page.getByTestId("new-card-el-answer").fill(newGreekAnswer);
+    await page.getByTestId("new-card-en-prompt").fill(newEnglishPrompt);
+    await page.getByTestId("new-card-en-answer").fill(newEnglishAnswer);
+    await page.getByTestId("new-card-save").click();
+    await expect(page.getByText("Η κάρτα προστέθηκε.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("card-editor-item-1")).toContainText("Κάρτα 2");
+
+    // The action hides the editor again without saving anything.
+    await page.getByTestId("edit-cards-button").click();
+    await expect(page.getByTestId("card-editor")).toHaveCount(0);
+
+    // Students see the edited and created cards on their next deck load without regeneration.
     await page.getByTestId("create-share-link").click();
     const shareUrl = await page.getByTestId("share-url").inputValue();
     expect(shareUrl).toContain("/el/s/");
@@ -92,6 +115,11 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     await expect(page.getByTestId("card-text")).toHaveText(greekPrompt);
     await page.getByTestId("card-face").click();
     await expect(page.getByTestId("card-text")).toHaveText(greekAnswer);
+
+    await page.getByRole("button", { name: "Επόμενο" }).click();
+    await expect(page.getByTestId("card-text")).toHaveText(newGreekPrompt);
+    await page.getByTestId("card-face").click();
+    await expect(page.getByTestId("card-text")).toHaveText(newGreekAnswer);
   } finally {
     await prisma.lesson.deleteMany({ where: { title: `Card editing lesson ${suffix}` } }).catch(() => undefined);
     await prisma.class.deleteMany({ where: { name: `Card editing class ${suffix}` } }).catch(() => undefined);

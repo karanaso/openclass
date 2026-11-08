@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/server/db";
-import { ConflictError, NotFoundError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 
 const cardTextSchema = z
   .string()
@@ -14,14 +15,22 @@ const cardTranslationSchema = z.object({
   answer: cardTextSchema,
 });
 
+const cardTranslationsSchema = z.object({
+  el: cardTranslationSchema,
+  en: cardTranslationSchema,
+});
+
 export const cardUpdateSchema = z.object({
-  translations: z.object({
-    el: cardTranslationSchema,
-    en: cardTranslationSchema,
-  }),
+  translations: cardTranslationsSchema,
+});
+
+export const cardCreateSchema = z.object({
+  sourcePage: z.number().int().positive(),
+  translations: cardTranslationsSchema,
 });
 
 export type CardUpdateInput = z.infer<typeof cardUpdateSchema>;
+export type CardCreateInput = z.infer<typeof cardCreateSchema>;
 
 export type LessonCardTranslation = { prompt: string; answer: string };
 
@@ -97,5 +106,51 @@ export async function updateCardTranslations(
       include: { translations: true },
     });
     return toLessonCard(updated);
+  });
+}
+
+export async function createCard(
+  lessonId: string,
+  input: unknown,
+  db: PrismaClient = defaultPrisma,
+): Promise<LessonCard> {
+  const parsed = cardCreateSchema.parse(input);
+
+  return db.$transaction(async (tx) => {
+    const lesson = await tx.lesson.findUnique({
+      where: { id: lessonId },
+      select: { status: true, pageCount: true },
+    });
+    if (!lesson) throw new NotFoundError("Lesson not found");
+    if (lesson.status !== "READY") {
+      throw new ConflictError("Cards can only be edited when the lesson is ready");
+    }
+    if (lesson.pageCount !== null && parsed.sourcePage > lesson.pageCount) {
+      throw new ValidationError("Source page is outside the lesson");
+    }
+
+    const aggregate = await tx.card.aggregate({
+      where: { lessonId },
+      _max: { position: true },
+    });
+
+    const created = await tx.card.create({
+      data: {
+        lessonId,
+        itemKey: `manual-${randomUUID()}`,
+        position: (aggregate._max.position ?? 0) + 1,
+        sourcePage: parsed.sourcePage,
+        translations: {
+          create: (["el", "en"] as const).map((locale) => ({
+            locale,
+            prompt: parsed.translations[locale].prompt,
+            answer: parsed.translations[locale].answer,
+          })),
+        },
+      },
+      include: { translations: true },
+    });
+
+    return toLessonCard(created);
   });
 }

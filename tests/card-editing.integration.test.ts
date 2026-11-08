@@ -7,6 +7,7 @@ let infra: TestInfra;
 let prisma: PrismaClient;
 let cardsService: typeof import("@/server/services/cards");
 let cardRoute: typeof import("@/app/api/admin/lessons/[lessonId]/cards/[cardId]/route");
+let cardsRoute: typeof import("@/app/api/admin/lessons/[lessonId]/cards/route");
 let cookie: string;
 
 beforeAll(async () => {
@@ -19,6 +20,7 @@ beforeAll(async () => {
   prisma = (await import("@/server/db")).prisma;
   cardsService = await import("@/server/services/cards");
   cardRoute = await import("@/app/api/admin/lessons/[lessonId]/cards/[cardId]/route");
+  cardsRoute = await import("@/app/api/admin/lessons/[lessonId]/cards/route");
   const session = await import("@/server/auth/session");
   cookie = await session.createSessionToken();
 }, 120_000);
@@ -44,6 +46,13 @@ function patchCard(lessonId: string, cardId: string, body: unknown, withAuth = t
       withAuth,
     ),
     { params: Promise.resolve({ lessonId, cardId }) },
+  );
+}
+
+function postCard(lessonId: string, body: unknown, withAuth = true) {
+  return cardsRoute.POST(
+    request(`/api/admin/lessons/${lessonId}/cards`, { method: "POST", body: JSON.stringify(body) }, withAuth),
+    { params: Promise.resolve({ lessonId }) },
   );
 }
 
@@ -290,6 +299,82 @@ describe("card editing service", () => {
 
     expect(await snapshot()).toEqual(before);
   });
+
+  describe("card creation", () => {
+    const validInput = {
+      sourcePage: 2,
+      translations: {
+        el: { prompt: "Νέα ερώτηση", answer: "Νέα απάντηση" },
+        en: { prompt: "New prompt", answer: "New answer" },
+      },
+    };
+
+    it("appends a new card after the last card", async () => {
+      const { lesson, cards } = await createLessonWithDeck();
+
+      const saved = await cardsService.createCard(lesson.id, validInput);
+
+      expect(saved.position).toBe(3);
+      expect(saved.sourcePage).toBe(2);
+      expect(saved.translations).toEqual(validInput.translations);
+
+      const rows = await prisma.card.findMany({
+        where: { lessonId: lesson.id },
+        orderBy: { position: "asc" },
+        include: { translations: true },
+      });
+      expect(rows).toHaveLength(3);
+      expect(rows[2].id).toBe(saved.id);
+      expect(rows[2].itemKey).toMatch(/^manual-/);
+      expect(rows[0].id).toBe(cards[0].id);
+      expect(rows[1].id).toBe(cards[1].id);
+    });
+
+    it("rejects blank content without creating a card", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      await expect(
+        cardsService.createCard(lesson.id, {
+          sourcePage: 1,
+          translations: {
+            el: { prompt: "   ", answer: "Απάντηση" },
+            en: { prompt: "Prompt", answer: "Answer" },
+          },
+        }),
+      ).rejects.toThrow();
+
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects an omitted locale without creating a card", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      await expect(
+        cardsService.createCard(lesson.id, {
+          sourcePage: 1,
+          translations: { el: { prompt: "Μόνο ελληνικά", answer: "Μόνο ελληνικά" } },
+        }),
+      ).rejects.toThrow();
+
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects a source page outside the lesson", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      await expect(cardsService.createCard(lesson.id, { ...validInput, sourcePage: 3 })).rejects.toThrow();
+
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects creation while the lesson is not ready", async () => {
+      const { lesson } = await createLessonWithDeck("GENERATING");
+
+      await expect(cardsService.createCard(lesson.id, validInput)).rejects.toThrow();
+
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+  });
 });
 
 describe("card editing API", () => {
@@ -357,5 +442,73 @@ describe("card editing API", () => {
     expect(response.status).toBe(404);
     expect(await translationsFor(first.cards[0].id)).toEqual(firstBefore);
     expect(await translationsFor(second.cards[0].id)).toEqual(secondBefore);
+  });
+
+  describe("card creation", () => {
+    const createBody = {
+      sourcePage: 2,
+      translations: {
+        el: { prompt: "Νέα ερώτηση", answer: "Νέα απάντηση" },
+        en: { prompt: "New prompt", answer: "New answer" },
+      },
+    };
+
+    it("requires authentication and leaves the deck unchanged", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      const response = await postCard(lesson.id, createBody, false);
+      expect(response.status).toBe(401);
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("creates a card with the next deck position", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      const response = await postCard(lesson.id, createBody);
+      expect(response.status).toBe(201);
+
+      const body = (await response.json()) as {
+        card: { id: string; position: number; sourcePage: number; translations: typeof createBody.translations };
+      };
+      expect(body.card.position).toBe(3);
+      expect(body.card.sourcePage).toBe(2);
+      expect(body.card.translations).toEqual(createBody.translations);
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(3);
+    });
+
+    it("rejects blank content with a validation error", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      const response = await postCard(lesson.id, {
+        sourcePage: 1,
+        translations: {
+          el: { prompt: "   ", answer: "Απάντηση" },
+          en: { prompt: "Prompt", answer: "Answer" },
+        },
+      });
+      expect(response.status).toBe(422);
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects a source page outside the lesson", async () => {
+      const { lesson } = await createLessonWithDeck();
+
+      const response = await postCard(lesson.id, { ...createBody, sourcePage: 3 });
+      expect(response.status).toBe(422);
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects a non-ready lesson with a conflict", async () => {
+      const { lesson } = await createLessonWithDeck("GENERATING");
+
+      const response = await postCard(lesson.id, createBody);
+      expect(response.status).toBe(409);
+      expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(2);
+    });
+
+    it("rejects an unknown lesson", async () => {
+      const response = await postCard("missing-lesson", createBody);
+      expect(response.status).toBe(404);
+    });
   });
 });
