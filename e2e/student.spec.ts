@@ -224,3 +224,50 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(page).toHaveURL(/\/el\/admin/);
   await page.request.delete(`/api/admin/classes/${classId}`, { data: { confirm: true } });
 });
+
+test("copies an existing lesson share link after a reload", async ({ page }) => {
+  const suffix = Date.now().toString(36);
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl() } } });
+  let lessonId: string;
+  try {
+    const classroom = await prisma.class.create({ data: { name: `Copy link class ${suffix}` } });
+    const lesson = await prisma.lesson.create({
+      data: {
+        classId: classroom.id,
+        title: `Copy link lesson ${suffix}`,
+        originalFilename: `${suffix}.pdf`,
+        storageKey: `lessons/${suffix}/original.pdf`,
+        checksum: `copy-link-${suffix}`,
+        sizeBytes: 100,
+        pageCount: 1,
+        sourceLocale: "en",
+        status: "READY",
+        passThreshold: 60,
+      },
+    });
+    lessonId = lesson.id;
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  await page.goto("/el/login");
+  await page.getByLabel("Κωδικός πρόσβασης").fill("change-me");
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/el\/admin/);
+
+  await page.goto(`/el/admin/lessons/${lessonId}`);
+  await page.getByTestId("create-share-link").click();
+  const shareUrl = await page.getByTestId("share-url").inputValue();
+  expect(shareUrl).toContain("/el/s/");
+
+  await page.reload();
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: "http://localhost:3000",
+  });
+  await page.getByTestId("copy-share-link").first().click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toBe(shareUrl);
+
+  await page.goto(copied);
+  await expect(page.getByTestId("student-name")).toBeVisible();
+});

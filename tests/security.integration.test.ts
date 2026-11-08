@@ -16,12 +16,15 @@ let shareService: typeof import("@/server/services/share-links");
 let studentAuth: typeof import("@/server/auth/student");
 let teacherAuth: typeof import("@/server/auth/session");
 let ingestion: typeof import("@/server/services/ingestion");
+let lessonData: typeof import("@/server/student/lesson-data");
 let queueModule: typeof import("@/server/queue");
 
 let adminClasses: typeof import("@/app/api/admin/classes/route");
+let adminShareLinks: typeof import("@/app/api/admin/share-links/route");
 let gameStart: typeof import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
 let eventsRoute: typeof import("@/app/api/admin/lessons/[lessonId]/events/route");
 let mediaRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
+let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
 let loginRoute: typeof import("@/app/api/auth/login/route");
 
 beforeAll(async () => {
@@ -49,10 +52,13 @@ beforeAll(async () => {
   studentAuth = await import("@/server/auth/student");
   teacherAuth = await import("@/server/auth/session");
   ingestion = await import("@/server/services/ingestion");
+  lessonData = await import("@/server/student/lesson-data");
   adminClasses = await import("@/app/api/admin/classes/route");
+  adminShareLinks = await import("@/app/api/admin/share-links/route");
   gameStart = await import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
   eventsRoute = await import("@/app/api/admin/lessons/[lessonId]/events/route");
   mediaRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
+  sessionRoute = await import("@/app/api/s/[token]/session/route");
   loginRoute = await import("@/app/api/auth/login/route");
   cookie = await teacherAuth.createSessionToken();
 }, 120_000);
@@ -158,6 +164,49 @@ describe("security smoke", () => {
 
     const forbidden = await gameStart.POST(request(lessonB.id), { params: Promise.resolve({ token: share.token, lessonId: lessonB.id }) });
     expect(forbidden.status).toBe(403);
+  });
+
+  it("returns share tokens only to authenticated admins", async () => {
+    const lesson = await createLesson("Admin listing");
+    const created = await shareService.createShareLink({ lessonId: lesson.id });
+    const url = `http://localhost:3000/api/admin/share-links?lessonId=${lesson.id}`;
+
+    const anonymous = await adminShareLinks.GET(new Request(url));
+    expect(anonymous.status).toBe(401);
+    expect(await anonymous.text()).not.toContain(created.token);
+
+    const authed = await adminShareLinks.GET(
+      new Request(url, { headers: { cookie: `teacher_session=${cookie}` } }),
+    );
+    expect(authed.status).toBe(200);
+    const body = (await authed.json()) as { links: Array<{ id: string; token: string | null }> };
+    expect(body.links.find((link) => link.id === created.link.id)?.token).toBe(created.token);
+  });
+
+  it("never exposes a share link token as a field to students", async () => {
+    const lesson = await createLesson("Token confidentiality");
+    const share = await shareService.createShareLink({ lessonId: lesson.id });
+
+    const sessionResponse = await sessionRoute.POST(
+      new Request(`http://localhost:3000/api/s/${share.token}/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Maria" }),
+      }),
+      { params: Promise.resolve({ token: share.token }) },
+    );
+    expect(sessionResponse.status).toBe(200);
+    expect(await sessionResponse.text()).not.toContain(share.token);
+
+    const studentData = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "en",
+      token: share.token,
+      normalizedStudentName: "maria",
+    });
+    expect(studentData).not.toBeNull();
+    expect(JSON.stringify(studentData)).not.toContain(share.token);
+    expect(JSON.stringify(studentData)).not.toMatch(/"token"\s*:/);
   });
 
   it("rejects upload abuse and accepts concurrent valid uploads", async () => {

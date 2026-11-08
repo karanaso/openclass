@@ -120,6 +120,7 @@
     "shareClass": "Class link",
     "shareLesson": "Lesson link",
     "copyLink": "Copy link",
+    "linkUnavailable": "Link unavailable",
     "revoke": "Revoke",
     "revoked": "Revoked",
     "expiresAt": "Expires",

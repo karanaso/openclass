@@ -138,8 +138,16 @@ describe("share links", () => {
     expect(created.token).toHaveLength(43);
     const stored = await prisma.shareLink.findUniqueOrThrow({ where: { id: created.link.id } });
     expect(stored.tokenHash).not.toBe(created.token);
+    expect(stored.token).toBe(created.token);
     const resolved = await share.resolveShareToken(created.token);
     expect(resolved.lessonId).toBe(lesson.id);
+  });
+
+  it("lists share links with their token for admin copying", async () => {
+    const { lesson } = await createLessonFixture();
+    const created = await share.createShareLink({ lessonId: lesson.id });
+    const listed = await share.listShareLinks({ lessonId: lesson.id });
+    expect(listed.find((link) => link.id === created.link.id)?.token).toBe(created.token);
   });
 
   it("denies revoked and expired links", async () => {

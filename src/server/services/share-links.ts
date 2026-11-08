@@ -36,6 +36,7 @@ export async function createShareLink(input: unknown, db: PrismaClient = default
   const token = newShareToken();
   const link = await db.shareLink.create({
     data: {
+      token,
       tokenHash: hashShareToken(token),
       classId: parsed.classId ?? null,
       lessonId: parsed.lessonId ?? null,

@@ -271,6 +271,7 @@ model LessonVisual {
 
 model ShareLink {
   id           String    @id @default(cuid())
+  token        String?
   tokenHash    String    @unique
   classId      String?
   lessonId     String?

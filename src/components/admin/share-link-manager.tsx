@@ -6,12 +6,14 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
+import { shareLinkCopyState, shareUrl } from "@/lib/share-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type LinkInfo = {
   id: string;
+  token: string | null;
   expiresAt: string | null;
   revokedAt: string | null;
   createdAt: string;
@@ -35,6 +37,7 @@ export function ShareLinkManager({
   const [expiresAt, setExpiresAt] = useState("");
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function create() {
     setPending(true);
@@ -53,13 +56,14 @@ export function ShareLinkManager({
       setLinks((current) => [
         {
           id: data.link.id,
+          token: data.token,
           expiresAt: data.link.expiresAt,
           revokedAt: data.link.revokedAt,
           createdAt: data.link.createdAt,
         },
         ...current,
       ]);
-      const url = `${window.location.origin}/${locale}/s/${data.token}`;
+      const url = shareUrl({ origin: window.location.origin, locale, token: data.token });
       setCreatedUrl(url);
       setCopied(false);
       router.refresh();
@@ -88,6 +92,14 @@ export function ShareLinkManager({
     if (!createdUrl) return;
     await navigator.clipboard.writeText(createdUrl);
     setCopied(true);
+  }
+
+  async function copyLink(link: LinkInfo) {
+    if (!link.token) return;
+    await navigator.clipboard.writeText(
+      shareUrl({ origin: window.location.origin, locale, token: link.token }),
+    );
+    setCopiedId(link.id);
   }
 
   return (
@@ -127,25 +139,49 @@ export function ShareLinkManager({
         <p className="text-sm text-muted-foreground">{t("noShareLinks")}</p>
       ) : (
         <div className="space-y-2">
-          {links.map((link) => (
-            <div key={link.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
-              <span className="flex items-center gap-2">
-                <Link2 className="h-4 w-4 text-primary" aria-hidden />
-                {t("createShareLink")} · {formatDate(link.createdAt, locale)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {link.expiresAt ? `${t("expiresAt")}: ${formatDate(link.expiresAt, locale)}` : t("noExpiry")}
-              </span>
-              {link.revokedAt ? (
-                <span className="text-xs font-semibold text-red-700">{t("revoked")}</span>
-              ) : (
-                <Button variant="ghost" size="sm" onClick={() => revoke(link.id)} disabled={pending}>
-                  <Trash2 className="h-4 w-4 text-destructive" aria-hidden />
-                  {t("revoke")}
-                </Button>
-              )}
-            </div>
-          ))}
+          {links.map((link) => {
+            const copyState = shareLinkCopyState(link);
+            return (
+              <div
+                key={link.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
+                data-testid="share-link-row"
+              >
+                <span className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-primary" aria-hidden />
+                  {t("createShareLink")} · {formatDate(link.createdAt, locale)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {link.expiresAt ? `${t("expiresAt")}: ${formatDate(link.expiresAt, locale)}` : t("noExpiry")}
+                </span>
+                <span className="flex items-center gap-2">
+                  {copyState === "copyable" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyLink(link)}
+                      data-testid="copy-share-link"
+                    >
+                      <Copy className="h-4 w-4" aria-hidden />
+                      {copiedId === link.id ? tc("copied") : tc("copy")}
+                    </Button>
+                  ) : copyState === "unavailable" ? (
+                    <span className="text-xs text-muted-foreground" data-testid="share-link-unavailable">
+                      {t("linkUnavailable")}
+                    </span>
+                  ) : null}
+                  {link.revokedAt ? (
+                    <span className="text-xs font-semibold text-red-700">{t("revoked")}</span>
+                  ) : (
+                    <Button variant="ghost" size="sm" onClick={() => revoke(link.id)} disabled={pending}>
+                      <Trash2 className="h-4 w-4 text-destructive" aria-hidden />
+                      {t("revoke")}
+                    </Button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -68,6 +68,7 @@ export default async function ClassDetailPage({
             classId={classroom.id}
             initialLinks={classroom.shareLinks.map((link) => ({
               id: link.id,
+              token: link.token,
               expiresAt: link.expiresAt?.toISOString() ?? null,
               revokedAt: link.revokedAt?.toISOString() ?? null,
               createdAt: link.createdAt.toISOString(),
