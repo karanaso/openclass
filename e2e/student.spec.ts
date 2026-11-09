@@ -27,7 +27,7 @@ async function makePdf(filePath: string, title: string) {
 }
 
 test("students can learn, play, and be assessed from a share link", async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const suffix = Date.now().toString(36);
   const dir = await mkdtemp(path.join(os.tmpdir(), "lessonlab-student-e2e-"));
   const pdfPath = path.join(dir, `${suffix}-lesson.pdf`);
@@ -50,10 +50,32 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   await page.getByRole("link", { name: "Άνοιγμα μαθήματος" }).first().click();
   await expect(page).toHaveURL(/\/el\/admin\/lessons\//);
-  const playVariant = page.locator('[data-testid^="video-play-"]').first();
+  const adminLessonId = page.url().split("/").pop()!;
+
+  // Video is manual: content is ready but no variant exists until the teacher asks.
+  await expect(page.locator('[data-testid^="video-play-"]')).toHaveCount(0);
+  const generateVariant = page.locator('[data-testid^="video-variant-"]').first();
+  await expect(generateVariant).toBeVisible();
+  const readyLocale = (await generateVariant.getAttribute("data-testid"))!.replace("video-variant-", "");
+  const queueResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/admin/lessons/${adminLessonId}/video`) &&
+      response.request().method() === "POST",
+  );
+  await generateVariant.click();
+  expect((await queueResponse).status()).toBe(202);
+
+  await expect
+    .poll(
+      async () => {
+        await page.reload();
+        return page.getByTestId(`video-play-${readyLocale}`).count();
+      },
+      { timeout: 150_000, intervals: [1_000, 2_000, 3_000] },
+    )
+    .toBeGreaterThan(0);
+  const playVariant = page.getByTestId(`video-play-${readyLocale}`);
   await expect(playVariant).toBeVisible();
-  const readyLocale = (await playVariant.getAttribute("data-testid"))!.replace("video-play-", "");
-  await expect(page.getByTestId(`video-variant-${readyLocale}`)).toBeVisible();
   await playVariant.click();
   await expect(page.getByTestId(`video-preview-${readyLocale}`)).toBeVisible();
   await page.getByTestId("create-share-link").click();

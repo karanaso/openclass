@@ -7,7 +7,7 @@ Turn class PDFs into interactive lessons: study cards, a bilingual quiz bank, a 
 - Teacher-only admin with environment-configured credentials
 - Classes, bulk PDF upload, private storage, durable background processing
 - OpenAI-generated, source-grounded content in Greek and English
-- Automatic narrated video (TTS + ffmpeg) with WebVTT captions
+- Teacher-triggered narrated video (TTS + ffmpeg) with WebVTT captions
 - Student share links, name-only entry, no accounts
 - Cards, video, game, and questionnaire in one tabbed lesson
 - Server-authoritative scoring, attempts, per-question analytics, CSV export

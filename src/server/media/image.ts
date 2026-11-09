@@ -78,7 +78,7 @@ export class OpenAIImageProvider implements ImageProvider {
   }
 
   async generateCharacterSheet(input: VisualPromptInput): Promise<GeneratedImage> {
-    return this.generate(buildCharacterSheetPrompt(input), { size: "1024x1024", transparent: true });
+    return this.generate(buildCharacterSheetPrompt(input), { size: "1536x1024", transparent: true });
   }
 }
 

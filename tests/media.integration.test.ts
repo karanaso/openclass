@@ -10,6 +10,8 @@ import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
 import { MockImageProvider, type ImageProvider } from "@/server/media/image";
 import type { VisualPromptInput } from "@/server/media/image-prompts";
+import { ensureLessonVisual } from "@/server/media/lesson-visual";
+import { processVisual } from "@/worker/processors/visual";
 import { cancelLesson, deleteLesson } from "@/server/services/lesson-control";
 import { getLessonDetail } from "@/server/services/classes";
 import { resetStorage, getStorage } from "@/server/storage";
@@ -131,6 +133,20 @@ class FailingImageProvider implements ImageProvider {
   }
 }
 
+class FixedSheetProvider implements ImageProvider {
+  private readonly inner = new MockImageProvider();
+
+  constructor(private readonly sheet: Uint8Array) {}
+
+  async generateScene(input: VisualPromptInput) {
+    return this.inner.generateScene(input);
+  }
+
+  async generateCharacterSheet() {
+    return { data: this.sheet, extension: "png" as const, model: "invalid-sheet" };
+  }
+}
+
 describe("speech and video", () => {
   it("writes per-page audio and records durations", async () => {
     const lesson = await createMediaLesson("TTS lesson");
@@ -145,6 +161,26 @@ describe("speech and video", () => {
     }
     const video = await prisma.videoAsset.findUniqueOrThrow({ where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } } });
     expect(video.status).toBe("PENDING");
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).status).toBe("READY");
+  });
+
+  it("keeps the lesson status stable while a video variant is pending or ready", async () => {
+    const lesson = await createMediaLesson("Manual video status");
+    await tts.processTts({ lessonId: lesson.id, stage: "tts", version: 0, locale: "el" }, { enqueue: false });
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).status).toBe("READY");
+    expect(
+      (await prisma.videoAsset.findUniqueOrThrow({
+        where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } },
+      })).status,
+    ).toBe("PENDING");
+
+    await render.processRender({ lessonId: lesson.id, stage: "render", version: 0, locale: "el" });
+    expect((await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } })).status).toBe("READY");
+    expect(
+      (await prisma.videoAsset.findUniqueOrThrow({
+        where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } },
+      })).status,
+    ).toBe("READY");
   });
 
   it("renders a seekable two-page MP4 with captions and a poster", async () => {
@@ -240,10 +276,15 @@ describe("speech and video", () => {
     expect(visual.status).toBe("READY");
     expect(visual.jobVersion).toBe(0);
     expect(visual.model).toBe("mock-image-v1");
-    expect(visual.promptVersion).toBe("v1");
-    expect(visual.sceneKey).toBeTruthy();
-    expect(visual.characterSheetKey).toBeTruthy();
-    expect(visual.characterLoopKey).toMatch(/character-loop\.(webm|mov)$/);
+    expect(visual.promptVersion).toBe("v2");
+    expect(visual.imageQuality).toBe("high");
+    expect(visual.generationId).toBeTruthy();
+    expect(visual.artBrief).toContain("Character video");
+    expect(visual.artBriefModel).toBe("mock-art-direction-v1");
+    expect(visual.artBriefFallback).toBe(false);
+    expect(visual.sceneKey).toMatch(/^lessons\/.+\/visual\/.+\/scene\.png$/);
+    expect(visual.characterSheetKey).toMatch(/^lessons\/.+\/visual\/.+\/character-sheet\.png$/);
+    expect(visual.characterLoopKey).toMatch(/^lessons\/.+\/visual\/.+\/character-loop\.(webm|mov)$/);
     const storage = getStorage();
     for (const key of [visual.sceneKey!, visual.characterSheetKey!, visual.characterLoopKey!]) {
       expect(await storage.exists(key)).toBe(true);
@@ -284,6 +325,24 @@ describe("speech and video", () => {
       width: 1280,
       height: 720,
     });
+    const firstFrame = path.join(storageRoot, `first-frame-${lesson.id}.png`);
+    await ffmpeg.runFfmpeg(["-ss", "0", "-i", videoPath, "-frames:v", "1", "-vf", "scale=1280:720", firstFrame]);
+    const psnr = await execFileAsync("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "info",
+      "-i",
+      storage.getAbsolutePath(video.posterKey!),
+      "-i",
+      firstFrame,
+      "-lavfi",
+      "[1:v]scale=1280:720,format=rgb24[frame];[0:v]format=rgb24[poster];[poster][frame]psnr",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const average = /average:([0-9.]+)/.exec(psnr.stderr)?.[1];
+    expect(Number(average)).toBeGreaterThan(30);
     expect(await readFile(storage.getAbsolutePath(video.captionsKey!), "utf8")).toContain("φωτοσύνθεση");
 
     const frameA = path.join(storageRoot, `frame-a-${lesson.id}.png`);
@@ -447,6 +506,216 @@ describe("speech and video", () => {
     const detail = await getLessonDetail(lesson.id);
     expect(detail.visual?.status).toBe("FAILED");
     expect(detail.visual?.error).toMatch(/image provider unavailable/);
+  });
+
+  it("keeps usable artwork when a forced regeneration fails", async () => {
+    const lesson = await createMediaLesson("Artwork regeneration failure");
+    const pages = await prisma.lessonPage.findMany({
+      where: { lessonId: lesson.id },
+      orderBy: { pageNumber: "asc" },
+    });
+    const input = { id: lesson.id, title: lesson.title, jobVersion: lesson.jobVersion, pages };
+    const first = await ensureLessonVisual(input, {
+      db: prisma,
+      storage: getStorage(),
+      provider: new CountingImageProvider(),
+    });
+    expect(first).not.toBeNull();
+    const before = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+
+    const result = await ensureLessonVisual(input, {
+      db: prisma,
+      storage: getStorage(),
+      provider: new FailingImageProvider(),
+      force: true,
+    });
+    expect(result).toBeNull();
+
+    const after = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(after.status).toBe("READY");
+    expect(after.sceneKey).toBe(before.sceneKey);
+    expect(after.characterLoopKey).toBe(before.characterLoopKey);
+    expect(await getStorage().exists(before.sceneKey!)).toBe(true);
+    expect(after.lastError).toMatch(/image provider unavailable/);
+    const job = await prisma.generationJob.findUniqueOrThrow({
+      where: { lessonId_stage: { lessonId: lesson.id, stage: "VISUAL" } },
+    });
+    expect(job.status).toBe("FAILED");
+  });
+
+  it("regenerates artwork after a prompt-version change or an explicit force", async () => {
+    const lesson = await createMediaLesson("Artwork versioning");
+    const pages = await prisma.lessonPage.findMany({
+      where: { lessonId: lesson.id },
+      orderBy: { pageNumber: "asc" },
+    });
+    const input = { id: lesson.id, title: lesson.title, jobVersion: lesson.jobVersion, pages };
+    const provider = new CountingImageProvider();
+    await ensureLessonVisual(input, { db: prisma, storage: getStorage(), provider: provider });
+    expect(provider.sceneCalls).toBe(1);
+    const first = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+
+    await prisma.lessonVisual.update({ where: { lessonId: lesson.id }, data: { promptVersion: "v1" } });
+    await ensureLessonVisual(input, { db: prisma, storage: getStorage(), provider: provider });
+    expect(provider.sceneCalls).toBe(2);
+    const second = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(second.promptVersion).toBe("v2");
+    expect(second.generationId).not.toBe(first.generationId);
+    expect(await getStorage().exists(first.sceneKey!)).toBe(false);
+
+    await ensureLessonVisual(input, { db: prisma, storage: getStorage(), provider: provider, force: true });
+    expect(provider.sceneCalls).toBe(3);
+  });
+
+  it("refreshes existing video variants without touching lesson content", async () => {
+    const lesson = await createMediaLesson("Artwork refresh fanout");
+    await prisma.card.create({
+      data: {
+        lessonId: lesson.id,
+        itemKey: "refresh-card",
+        position: 0,
+        sourcePage: 1,
+        translations: { create: [{ locale: "en", prompt: "Question", answer: "Answer" }] },
+      },
+    });
+    const beforeCards = await prisma.card.count({ where: { lessonId: lesson.id } });
+    const beforeNarration = await prisma.narrationSegment.count({ where: { lessonId: lesson.id } });
+    await prisma.videoAsset.createMany({
+      data: [
+        { lessonId: lesson.id, locale: "el", status: "READY", storageKey: `lessons/${lesson.id}/video/el.mp4` },
+        { lessonId: lesson.id, locale: "en", status: "FAILED", error: "old failure" },
+      ],
+    });
+
+    const provider = new CountingImageProvider();
+    await processVisual(
+      { lessonId: lesson.id, stage: "visual", version: lesson.jobVersion },
+      { db: prisma, storage: getStorage(), imageProvider: provider },
+    );
+
+    expect(provider.sceneCalls).toBe(1);
+    const visual = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(visual.status).toBe("READY");
+    expect(await prisma.card.count({ where: { lessonId: lesson.id } })).toBe(beforeCards);
+    expect(await prisma.narrationSegment.count({ where: { lessonId: lesson.id } })).toBe(beforeNarration);
+
+    const jobs = await queueModule
+      .getLessonQueue()
+      .getJobs(["waiting", "delayed", "prioritized"], 0, -1, false);
+    const renderJobs = jobs.filter((job) => job.name === "render" && job.data.lessonId === lesson.id);
+    expect(renderJobs.map((job) => job.data.locale).sort()).toEqual(["el", "en"]);
+    await Promise.all(renderJobs.map((job) => job.remove()));
+  });
+
+  it("protects and serves the artwork administration routes", async () => {
+    const session = await import("@/server/auth/session");
+    const teacherCookie = await session.createSessionToken();
+    const visualRoute = await import("@/app/api/admin/lessons/[lessonId]/visual/route");
+    const visualMediaRoute = await import("@/app/api/admin/lessons/[lessonId]/visual/[kind]/route");
+    const lesson = await createMediaLesson("Artwork routes");
+    const endpoint = `http://localhost:3000/api/admin/lessons/${lesson.id}/visual`;
+
+    const unauth = await visualRoute.POST(new Request(endpoint, { method: "POST" }), {
+      params: Promise.resolve({ lessonId: lesson.id }),
+    });
+    expect(unauth.status).toBe(401);
+
+    await prisma.lessonVisual.create({
+      data: { lessonId: lesson.id, status: "GENERATING", jobVersion: lesson.jobVersion },
+    });
+    const conflict = await visualRoute.POST(
+      new Request(endpoint, {
+        method: "POST",
+        headers: {
+          cookie: `teacher_session=${teacherCookie}`,
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+        },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ lessonId: lesson.id }) },
+    );
+    expect(conflict.status).toBe(409);
+
+    const fresh = await createMediaLesson("Artwork route enqueue");
+    const queued = await visualRoute.POST(
+      new Request(`http://localhost:3000/api/admin/lessons/${fresh.id}/visual`, {
+        method: "POST",
+        headers: {
+          cookie: `teacher_session=${teacherCookie}`,
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+        },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ lessonId: fresh.id }) },
+    );
+    expect(queued.status).toBe(202);
+    const jobs = await queueModule
+      .getLessonQueue()
+      .getJobs(["waiting", "delayed", "prioritized"], 0, -1, false);
+    const visualJobs = jobs.filter((job) => job.name === "visual" && job.data.lessonId === fresh.id);
+    expect(visualJobs).toHaveLength(1);
+    await Promise.all(visualJobs.map((job) => job.remove()));
+
+    const artLesson = await createMediaLesson("Artwork media route");
+    const pages = await prisma.lessonPage.findMany({
+      where: { lessonId: artLesson.id },
+      orderBy: { pageNumber: "asc" },
+    });
+    await ensureLessonVisual(
+      { id: artLesson.id, title: artLesson.title, jobVersion: artLesson.jobVersion, pages },
+      { db: prisma, storage: getStorage(), provider: new MockImageProvider() },
+    );
+    const mediaParams = { params: Promise.resolve({ lessonId: artLesson.id, kind: "scene" }) };
+    const unauthMedia = await visualMediaRoute.GET(
+      new Request(`http://localhost:3000/api/admin/lessons/${artLesson.id}/visual/scene`),
+      mediaParams,
+    );
+    expect(unauthMedia.status).toBe(401);
+
+    const media = await visualMediaRoute.GET(
+      new Request(`http://localhost:3000/api/admin/lessons/${artLesson.id}/visual/scene`, {
+        headers: { cookie: `teacher_session=${teacherCookie}` },
+      }),
+      mediaParams,
+    );
+    expect(media.status).toBe(200);
+    expect(media.headers.get("content-type")).toBe("image/png");
+    expect((await media.arrayBuffer()).byteLength).toBeGreaterThan(100);
+  });
+
+  it("renders the standard video when the sprite sheet is invalid", async () => {
+    const lesson = await createMediaLesson("Invalid visual fallback");
+    const invalidSheetPath = path.join(storageRoot, `invalid-sheet-${lesson.id}.png`);
+    await execFileAsync("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=0x2563eb:s=1024x1024:r=1",
+      "-frames:v",
+      "1",
+      "-pix_fmt",
+      "rgba",
+      invalidSheetPath,
+    ]);
+    await tts.processTts({ lessonId: lesson.id, stage: "tts", version: 0, locale: "el" }, { enqueue: false });
+    await render.processRender(
+      { lessonId: lesson.id, stage: "render", version: 0, locale: "el" },
+      { imageProvider: new FixedSheetProvider(new Uint8Array(await readFile(invalidSheetPath))) },
+    );
+
+    const visual = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(visual.status).toBe("FAILED");
+    expect(visual.error).toMatch(/1536x1024/);
+    const video = await prisma.videoAsset.findUniqueOrThrow({
+      where: { lessonId_locale: { lessonId: lesson.id, locale: "el" } },
+    });
+    expect(video.status).toBe("READY");
   });
 
   it("cleans visual assets on cancel and deletes them with the lesson", async () => {

@@ -19,14 +19,14 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
       const lesson = await prisma.lesson.findUnique({
         where: { id: lessonId },
         include: {
-          narration: { where: { locale: body.locale }, select: { id: true } },
           videos: { where: { locale: body.locale }, select: { status: true } },
+          _count: { select: { pages: true } },
         },
       });
       if (!lesson) throw new AppError("not_found", "Lesson not found", 404);
       if (lesson.status === "CANCELLED") throw new AppError("cancelled", "Lesson was cancelled", 409);
-      if (lesson.narration.length === 0) {
-        throw new AppError("no_narration", `No narration is available for ${body.locale}`, 422);
+      if (lesson._count.pages === 0) {
+        throw new AppError("no_pages", "This lesson has no pages to narrate", 422);
       }
 
       const current = lesson.videos[0];
@@ -34,13 +34,31 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
         throw new AppError("video_processing", "This video variant is already processing", 409);
       }
 
-      await enqueueStage({
-        lessonId,
-        stage: "tts",
-        version: lesson.jobVersion,
-        locale: body.locale,
-        runId: randomUUID(),
+      await prisma.videoAsset.upsert({
+        where: { lessonId_locale: { lessonId, locale: body.locale } },
+        create: { lessonId, locale: body.locale, status: "PENDING" },
+        update: { status: "PENDING", error: null },
       });
+
+      try {
+        await enqueueStage({
+          lessonId,
+          stage: "narration",
+          version: lesson.jobVersion,
+          locale: body.locale,
+          runId: randomUUID(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message.slice(0, 1000) : "Could not queue narration";
+        await prisma.videoAsset
+          .update({
+            where: { lessonId_locale: { lessonId, locale: body.locale } },
+            data: { status: "FAILED", error: message },
+          })
+          .catch(() => undefined);
+        throw error;
+      }
+
       return json({ queued: true, locale: body.locale }, 202);
     },
     { mutation: true },

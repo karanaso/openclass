@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/errors";
-import type { ContentCounts, PromptPage, RawCard, RawNarration, RawQuestion } from "./schemas";
+import type { ContentCounts, PromptPage, RawCard, RawQuestion } from "./schemas";
 import type { GeneratedArtifacts, GeneratedQuestion } from "./types";
 
 const normalize = (value: string) =>
@@ -14,7 +14,6 @@ export type RawArtifacts = {
   cards: RawCard[];
   questionnaire: RawQuestion[];
   game: RawQuestion[];
-  narration: RawNarration[];
 };
 
 export function validateGeneratedArtifacts(
@@ -94,16 +93,6 @@ export function validateGeneratedArtifacts(
   const questionnaire = normalizeQuestions(raw.questionnaire, "questionnaire");
   const game = normalizeQuestions(raw.game, "game");
 
-  const narrationPages = new Set<number>();
-  for (const segment of raw.narration) {
-    if (!pageNumbers.has(segment.pageNumber)) errors.push(`narration cites missing page ${segment.pageNumber}`);
-    if (narrationPages.has(segment.pageNumber)) errors.push(`duplicate narration for page ${segment.pageNumber}`);
-    narrationPages.add(segment.pageNumber);
-  }
-  for (const pageNumber of pageNumbers) {
-    if (!narrationPages.has(pageNumber)) errors.push(`narration missing page ${pageNumber}`);
-  }
-
   if (errors.length > 0) {
     throw new AppError("invalid_generation", `Generated content failed validation: ${errors.slice(0, 3).join("; ")}`, 422, errors);
   }
@@ -118,9 +107,5 @@ export function validateGeneratedArtifacts(
     })),
     questionnaire,
     game,
-    narration: raw.narration
-      .slice()
-      .sort((a, b) => a.pageNumber - b.pageNumber)
-      .map((segment) => ({ pageNumber: segment.pageNumber, script: segment.script })),
   };
 }

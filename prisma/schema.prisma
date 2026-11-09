@@ -20,6 +20,7 @@ enum LessonStatus {
 enum JobStage {
   EXTRACT
   GENERATE
+  NARRATION
   TTS
   VISUAL
   RENDER
@@ -258,9 +259,15 @@ model LessonVisual {
   sceneKey          String?
   characterSheetKey String?
   characterLoopKey  String?
+  generationId      String?
+  artBrief          String?
+  artBriefModel     String?
+  artBriefFallback  Boolean      @default(false)
   model             String?
+  imageQuality      String?
   promptVersion     String?
   error             String?
+  lastError         String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

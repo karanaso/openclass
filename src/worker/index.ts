@@ -6,8 +6,11 @@ import { LESSON_QUEUE, type PipelineJob } from "../server/queue";
 import { getRedis } from "../server/redis";
 import { processExtract } from "./processors/extract";
 import { processGenerate } from "./processors/generate";
+import { processNarration } from "./processors/narration";
 import { processRender } from "./processors/render";
 import { processTts } from "./processors/tts";
+import { processVisual } from "./processors/visual";
+import { markMediaFailure } from "./failures";
 
 export function createPipelineWorker(): Worker<PipelineJob> {
   const env = getEnv();
@@ -21,8 +24,12 @@ export function createPipelineWorker(): Worker<PipelineJob> {
           return processExtract(data);
         case "generate":
           return processGenerate(data);
+        case "narration":
+          return processNarration(data);
         case "tts":
           return processTts(data);
+        case "visual":
+          return processVisual(data);
         case "render":
           return processRender(data);
         default:
@@ -49,29 +56,14 @@ export function createPipelineWorker(): Worker<PipelineJob> {
       "pipeline job failed",
     );
     if (job.attemptsMade >= maxAttempts) {
-      if (job.name === "tts" || job.name === "render") {
-        const lesson = await prisma.lesson
-          .findUnique({ where: { id: job.data.lessonId }, select: { sourceLocale: true } })
-          .catch(() => null);
-        const locale = job.data.locale ?? lesson?.sourceLocale ?? "el";
-        await prisma.videoAsset
-          .upsert({
-            where: { lessonId_locale: { lessonId: job.data.lessonId, locale } },
-            create: {
-              lessonId: job.data.lessonId,
-              locale,
-              status: "FAILED",
-              error: error.message.slice(0, 1000),
-            },
-            update: { status: "FAILED", error: error.message.slice(0, 1000) },
-          })
-          .catch((updateError) => logger.error({ err: updateError }, "could not mark video failed"));
-        await prisma.lesson
-          .updateMany({
-            where: { id: job.data.lessonId, status: "RENDERING" },
-            data: { status: "READY" },
-          })
-          .catch((updateError) => logger.error({ err: updateError }, "could not restore lesson status"));
+      if (job.name === "narration" || job.name === "tts" || job.name === "render") {
+        await markMediaFailure(job.data, error).catch((updateError) =>
+          logger.error({ err: updateError }, "could not mark video failed"),
+        );
+        return;
+      }
+
+      if (job.name === "visual") {
         return;
       }
 

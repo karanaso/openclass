@@ -4,7 +4,6 @@ import { prisma as defaultPrisma } from "@/server/db";
 import { probeDurationMs, renderPdfPageImages } from "@/server/media/ffmpeg";
 import { getTtsProvider, type TtsProvider } from "@/server/media/tts";
 import { enqueueStage, type PipelineJob } from "@/server/queue";
-import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { getStorage, type LocalStorage } from "@/server/storage";
 
 export async function processTts(
@@ -32,7 +31,6 @@ export async function processTts(
     create: { lessonId: lesson.id, locale, status: "PENDING" },
     update: { status: "PENDING", error: null },
   });
-  await setLessonStatus(lesson.id, "RENDERING", {}, db);
 
   const provider = options.provider ?? getTtsProvider();
   for (const segment of segments) {

@@ -16,4 +16,12 @@ describe("jobIdFor", () => {
     expect(second).toBe("lesson-1-tts-3-el-run-b");
     expect(first).not.toBe(second);
   });
+
+  it("distinguishes narration from tts for the same lesson and locale", () => {
+    const narration = jobIdFor({ ...base, stage: "narration" });
+    const tts = jobIdFor({ ...base, stage: "tts" });
+    expect(narration).toBe("lesson-1-narration-3-el");
+    expect(tts).toBe("lesson-1-tts-3-el");
+    expect(narration).not.toBe(tts);
+  });
 });

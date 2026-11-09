@@ -57,19 +57,6 @@ export async function publishArtifacts(
       await tx.question.create({ data: question });
     }
 
-    for (const segment of artifacts.narration) {
-      for (const locale of ["el", "en"] as const) {
-        await tx.narrationSegment.create({
-          data: {
-            lessonId,
-            pageNumber: segment.pageNumber,
-            locale,
-            script: segment.script[locale],
-          },
-        });
-      }
-    }
-
     return tx.lesson.update({ where: { id: lessonId }, data: { status: "READY", readyAt: new Date(), failureReason: null } });
   });
 }

@@ -31,17 +31,52 @@ export const CHARACTER_MARGIN = 80;
 export const CHARACTER_BOTTOM_MARGIN = 40;
 export const CHARACTER_BOB_AMPLITUDE = 10;
 export const CHARACTER_BOB_PERIOD_SECONDS = 3;
+export const CHARACTER_BREATH_AMPLITUDE = 0.012;
+export const CHARACTER_BREATH_PERIOD_SECONDS = 4;
+export const CHARACTER_SWAY_AMPLITUDE = 4;
+export const CHARACTER_SWAY_PERIOD_SECONDS = 5;
+export const SLIDE_ENTRANCE_SECONDS = 0.35;
+export const SLIDE_ENTRANCE_DRIFT = 12;
+export const SCENE_MOTION_SCALE = 1.1;
+export const SCENE_PAN_X_AMPLITUDE = 40;
+export const SCENE_PAN_Y_AMPLITUDE = 24;
+export const SCENE_PAN_PERIOD_SECONDS = 12;
+export const SLIDE_SHADOW_OFFSET = 40;
 
-export function characterFilterGraph(): string {
+const ASSET_DIRECTORY = path.join(process.cwd(), "src", "server", "media", "assets");
+
+export const MEDIA_ASSETS = {
+  slideMask: path.join(ASSET_DIRECTORY, "slide-mask.png"),
+  slideShadow: path.join(ASSET_DIRECTORY, "slide-shadow.png"),
+  vignette: path.join(ASSET_DIRECTORY, "vignette.png"),
+} as const;
+
+export function characterFilterGraph(options: { variant?: number } = {}): string {
+  const variant = Math.abs(options.variant ?? 0);
+  const panDirection = variant % 2 === 0 ? 1 : -1;
+  const verticalDirection = variant % 4 < 2 ? 1 : -1;
   const bob = `${CHARACTER_BOB_AMPLITUDE}*sin(2*PI*t/${CHARACTER_BOB_PERIOD_SECONDS})`;
+  const sceneWidth = Math.round(COMPOSED_WIDTH * SCENE_MOTION_SCALE);
+  const sceneHeight = Math.round(COMPOSED_HEIGHT * SCENE_MOTION_SCALE);
+  const sceneX = `(iw-ow)/2+${SCENE_PAN_X_AMPLITUDE * panDirection}*sin(2*PI*t/${SCENE_PAN_PERIOD_SECONDS})`;
+  const sceneY = `(ih-oh)/2+${SCENE_PAN_Y_AMPLITUDE * verticalDirection}*cos(2*PI*t/${SCENE_PAN_PERIOD_SECONDS + 3})`;
+  const slideEntrance = `${SLIDE_BOX.y}+${SLIDE_ENTRANCE_DRIFT}*max(0\\,1-t/${SLIDE_ENTRANCE_SECONDS})`;
+
   return [
     `[0:v]scale=${SLIDE_BOX.width}:${SLIDE_BOX.height}:force_original_aspect_ratio=decrease,` +
-      `pad=${SLIDE_BOX.width}:${SLIDE_BOX.height}:(ow-iw)/2:(oh-ih)/2:color=white,format=rgba[slide]`,
-    `[1:v]scale=${COMPOSED_WIDTH}:${COMPOSED_HEIGHT}:force_original_aspect_ratio=increase,` +
-      `crop=${COMPOSED_WIDTH}:${COMPOSED_HEIGHT},format=rgba[scene]`,
-    `[scene][slide]overlay=${SLIDE_BOX.x}:${SLIDE_BOX.y}:format=auto[base]`,
-    `[2:v]scale=${CHARACTER_WIDTH}:-1[character]`,
-    `[base][character]overlay=x=W-w-${CHARACTER_MARGIN}:y=H-h-${CHARACTER_BOTTOM_MARGIN}+${bob}:format=auto[v]`,
+      `pad=${SLIDE_BOX.width}:${SLIDE_BOX.height}:(ow-iw)/2:(oh-ih)/2:color=white,format=rgba[slidefit]`,
+    `[slidefit][4:v]alphamerge,format=rgba,` +
+      `fade=t=in:st=0:d=${SLIDE_ENTRANCE_SECONDS}:alpha=1[slidecard]`,
+    `[1:v]scale=${sceneWidth}:${sceneHeight}:force_original_aspect_ratio=increase,` +
+      `crop=${sceneWidth}:${sceneHeight},format=rgba,` +
+      `crop=${COMPOSED_WIDTH}:${COMPOSED_HEIGHT}:x='${sceneX}':y='${sceneY}'[scenemotion]`,
+    `[scenemotion][5:v]overlay=0:0:format=auto[scenedecor]`,
+    `[scenedecor][3:v]overlay=${SLIDE_BOX.x - SLIDE_SHADOW_OFFSET}:${SLIDE_BOX.y - SLIDE_SHADOW_OFFSET}:format=auto[withshadow]`,
+    `[withshadow][slidecard]overlay=x=${SLIDE_BOX.x}:y='${slideEntrance}':format=auto[base]`,
+    `[2:v]scale=${CHARACTER_WIDTH}:-1,format=rgba[charbase]`,
+    `[charbase]scale=w='${CHARACTER_WIDTH}*(1+${CHARACTER_BREATH_AMPLITUDE}*sin(2*PI*t/${CHARACTER_BREATH_PERIOD_SECONDS}))':h=-1:eval=frame,format=rgba[character]`,
+    `[base][character]overlay=x='W-w-${CHARACTER_MARGIN}+${CHARACTER_SWAY_AMPLITUDE}*sin(2*PI*t/${CHARACTER_SWAY_PERIOD_SECONDS})':` +
+      `y='H-h-${CHARACTER_BOTTOM_MARGIN}+${bob}':format=auto[v]`,
   ].join(";");
 }
 
@@ -50,6 +85,7 @@ function characterSegmentArgs(input: {
   audioPath: string;
   durationMs: number;
   visual: VisualInput;
+  variant: number;
   segmentPath: string;
 }): string[] {
   const loopDecoder = input.visual.characterLoopPath.endsWith(".webm") ? ["-c:v", "libvpx-vp9"] : [];
@@ -71,14 +107,32 @@ function characterSegmentArgs(input: {
     "-1",
     "-i",
     input.visual.characterLoopPath,
+    "-loop",
+    "1",
+    "-framerate",
+    "30",
+    "-i",
+    MEDIA_ASSETS.slideShadow,
+    "-loop",
+    "1",
+    "-framerate",
+    "30",
+    "-i",
+    MEDIA_ASSETS.slideMask,
+    "-loop",
+    "1",
+    "-framerate",
+    "30",
+    "-i",
+    MEDIA_ASSETS.vignette,
     "-i",
     input.audioPath,
     "-filter_complex",
-    characterFilterGraph(),
+    characterFilterGraph({ variant: input.variant }),
     "-map",
     "[v]",
     "-map",
-    "3:a",
+    "6:a",
     "-c:v",
     "libx264",
     "-preset",
@@ -128,6 +182,7 @@ export async function composeLessonVideo(input: {
           audioPath: slide.audioPath,
           durationMs,
           visual: input.visual,
+          variant: index,
           segmentPath,
         }),
       );
@@ -142,7 +197,7 @@ export async function composeLessonVideo(input: {
         "-i",
         slide.audioPath,
         "-vf",
-        "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1",
+        `scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fade=t=in:st=0:d=0.25`,
         "-c:v",
         "libx264",
         "-preset",

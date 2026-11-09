@@ -6,47 +6,38 @@ Turns extracted lesson page text into validated, bilingual learning artifacts, i
 
 ## Requirements
 
-### Requirement: Narration is normalized to one segment per supplied page
+### Requirement: Content generation publishes without narration
 
-Before validation, the system SHALL reduce provider narration output to exactly one segment for each page supplied in the generation request. When several segments cite the same page, the system SHALL keep the segment with the greatest combined length of its Greek and English script text, breaking ties by the segment's first occurrence in provider order.
+The system SHALL validate and publish only cards, questionnaire items, and game questions during content generation. Missing, invalid, or absent narration SHALL NOT fail content generation or prevent the lesson from becoming `READY`.
 
-#### Scenario: Duplicate segments for the same page
+#### Scenario: Sparse page does not block content
 
-- **WHEN** the provider returns two or more narration segments with the same page number
-- **THEN** the system keeps one segment for that page and continues generation instead of reporting a duplicate narration validation failure
+- **WHEN** a source page contains little prose and the narration stage would omit it
+- **THEN** content generation still publishes the cards, questionnaire, and game and marks the lesson `READY`
 
-#### Scenario: Identical duplicate segments
+#### Scenario: No narration provider call
 
-- **WHEN** the provider returns multiple identical narration segments for the same page
-- **THEN** the system keeps one copy of that segment
+- **WHEN** content generation runs
+- **THEN** it does not request narration from the content provider and does not include narration in its artifact validation
 
-#### Scenario: Segments citing pages outside the request
+#### Scenario: Content-only retry
 
-- **WHEN** the provider returns a narration segment for a page number that was not supplied in the generation request
-- **THEN** the system discards that segment before validation
+- **WHEN** content validation fails
+- **THEN** the retry covers only cards, questionnaire, and game, not narration
 
-### Requirement: Normalized narration preserves page order and coverage
+### Requirement: Content publication clears stale narration
 
-The system SHALL order normalized narration by ascending page number and SHALL retain one segment for every page supplied in the request.
+When new content is published, the system SHALL remove previously published narration scripts for that lesson so stale scripts cannot be reused with changed page text.
 
-#### Scenario: Provider returns segments out of order
+#### Scenario: Regeneration clears scripts
 
-- **WHEN** the provider returns narration segments whose page numbers are not ascending
-- **THEN** the published narration is ordered by ascending page number
+- **WHEN** new content is published for a lesson
+- **THEN** the lesson's previous narration segments are deleted
 
-#### Scenario: A supplied page has no segment
+#### Scenario: Next video prepares fresh scripts
 
-- **WHEN** normalization produces no narration segment for a page that was supplied in the request
-- **THEN** validation fails with a message identifying the missing page
-
-### Requirement: Narration requests state the exact required pages
-
-The narration generation request SHALL list the exact page numbers being requested and SHALL require exactly one segment for each listed page with no repeated page numbers.
-
-#### Scenario: Prompt lists requested pages
-
-- **WHEN** a narration request is built for a set of pages
-- **THEN** the prompt names every supplied page number and instructs the provider to return exactly one segment per page
+- **WHEN** a video is requested after content regeneration
+- **THEN** narration is prepared from the lesson's current pages rather than the removed scripts
 
 ### Requirement: Question option cardinality is exact
 
@@ -81,20 +72,6 @@ The question generation request SHALL state that `MULTIPLE_CHOICE` questions hav
 - **WHEN** a game question request is built
 - **THEN** the prompt requires exactly four options for `MULTIPLE_CHOICE` and exactly two for `TRUE_FALSE`, with the corresponding option ids
 
-### Requirement: Publishing guarantees one narration segment per source page
-
-Published narration SHALL contain exactly one segment per source page that has extracted text. A generation attempt that still contains duplicate or missing narration after normalization SHALL fail validation and remain eligible for the configured retry behavior.
-
-#### Scenario: Duplicate remains after normalization
-
-- **WHEN** the normalized narration still contains more than one segment for a page
-- **THEN** generation fails validation rather than publishing ambiguous narration
-
-#### Scenario: Valid narration is published
-
-- **WHEN** every source page with extracted text has exactly one normalized narration segment
-- **THEN** the lesson's narration is published with one segment per page for both locales
-
 ### Requirement: Published questions match their required option count
 
 Published questions SHALL contain exactly four options for `MULTIPLE_CHOICE` and exactly two for `TRUE_FALSE` in every locale, with option ids aligned across locales.
@@ -108,12 +85,3 @@ Published questions SHALL contain exactly four options for `MULTIPLE_CHOICE` and
 
 - **WHEN** a question that reaches artifact validation has the wrong number of options
 - **THEN** generation fails validation instead of publishing the malformed question
-
-### Requirement: Narration normalization is observable
-
-The system SHALL emit a structured log entry when normalization drops duplicate or out-of-scope narration segments, including how many segments were dropped and which page numbers were affected.
-
-#### Scenario: Duplicates are dropped
-
-- **WHEN** normalization removes one or more narration segments
-- **THEN** a structured warning records the count of dropped segments and the affected page numbers

@@ -3,30 +3,15 @@ import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { prisma as defaultPrisma } from "@/server/db";
-import { enqueueStage } from "@/server/queue";
 import { publishArtifacts } from "@/server/repositories/publication";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { chunkPages, PROMPT_VERSION } from "./prompts";
-import { normalizeNarration } from "./narration";
 import { getContentProvider } from "./provider-factory";
 import type { ContentProvider, GenerationInput, ProviderUsage } from "./provider";
-import type { ContentCounts, PromptPage, RawCard, RawNarration, RawQuestion } from "./schemas";
+import type { ContentCounts, PromptPage, RawCard, RawQuestion } from "./schemas";
+import { estimateCost } from "./usage";
 import { validateGeneratedArtifacts, type RawArtifacts } from "./validate";
 import type { GeneratedArtifacts } from "./types";
-
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gpt-4.1": { input: 2, output: 8 },
-  "gpt-4.1-mini": { input: 0.4, output: 1.6 },
-  "gpt-4.1-nano": { input: 0.1, output: 0.4 },
-  "gpt-4o-mini": { input: 0.15, output: 0.6 },
-};
-
-function estimateCost(usage: ProviderUsage[]): number {
-  return usage.reduce((total, item) => {
-    const price = MODEL_PRICING[item.model] ?? { input: 1, output: 4 };
-    return total + (item.inputTokens / 1_000_000) * price.input + (item.outputTokens / 1_000_000) * price.output;
-  }, 0);
-}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -37,7 +22,6 @@ export type GenerateOptions = {
   db?: PrismaClient;
   maxAttempts?: number;
   retryDelayMs?: number;
-  continueToMedia?: boolean;
 };
 
 export type GenerationResult = {
@@ -103,7 +87,6 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
       const cards: RawCard[] = [];
       const questionnaire: RawQuestion[] = [];
       const game: RawQuestion[] = [];
-      const narration: RawNarration[] = [];
 
       const perChunk: ContentCounts = {
         cards: {
@@ -138,28 +121,12 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
         const gameResult = await provider.questions(input, "game");
         game.push(...gameResult.items);
         usage.push(gameResult.usage);
-
-        const narrationResult = await provider.narration(input);
-        const normalizedNarration = normalizeNarration(narrationResult.items, chunk);
-        if (normalizedNarration.dropped.count > 0) {
-          logger.warn(
-            {
-              lessonId,
-              dropped: normalizedNarration.dropped.count,
-              pageNumbers: normalizedNarration.dropped.pageNumbers,
-            },
-            "dropped duplicate or out-of-scope narration segments",
-          );
-        }
-        narration.push(...normalizedNarration.segments);
-        usage.push(narrationResult.usage);
       }
 
       const raw: RawArtifacts = {
         cards: cards.slice(0, counts.cards.max),
         questionnaire: questionnaire.slice(0, counts.questionnaire.max),
         game: game.slice(0, counts.game.max),
-        narration,
       };
       const artifacts = validateGeneratedArtifacts(raw, pages, counts);
       const cost = estimateCost(usage);
@@ -180,16 +147,6 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
           error: null,
         },
       });
-
-      if (options.continueToMedia) {
-        await setLessonStatus(lessonId, "RENDERING", {}, db);
-        try {
-          await enqueueStage({ lessonId, stage: "tts", version: lesson.jobVersion });
-        } catch (error) {
-          logger.error({ lessonId, err: error }, "could not queue speech synthesis");
-          await setLessonStatus(lessonId, "READY", {}, db);
-        }
-      }
 
       return { artifacts, usage, estimatedCostUsd: cost };
     } catch (error) {

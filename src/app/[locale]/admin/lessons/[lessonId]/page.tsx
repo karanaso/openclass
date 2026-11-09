@@ -7,6 +7,7 @@ import {
   GeneratedContentEditorProvider,
   GeneratedContentEditors,
 } from "@/components/admin/generated-content-editor";
+import { ArtworkControls } from "@/components/admin/artwork-controls";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
@@ -45,6 +46,7 @@ export default async function LessonDetailPage({
 
   const tokens = lesson.jobs.reduce((sum, job) => sum + job.inputTokens + job.outputTokens, 0);
   const cost = lesson.jobs.reduce((sum, job) => sum + job.estimatedCostUsd, 0);
+  const visualJob = lesson.jobs.find((job) => job.stage === "VISUAL");
 
   return (
     <GeneratedContentEditorProvider
@@ -211,6 +213,19 @@ export default async function LessonDetailPage({
                 {lesson.visual.error.slice(0, 180)}
               </p>
             ) : null}
+            <ArtworkControls
+              lessonId={lesson.id}
+              visual={
+                lesson.visual
+                  ? {
+                      status: lesson.visual.status,
+                      updatedAt: lesson.visual.updatedAt.toISOString(),
+                      lastError: lesson.visual.lastError,
+                    }
+                  : null
+              }
+              busy={lesson.visual?.status === "GENERATING" || visualJob?.status === "ACTIVE"}
+            />
           </CardContent>
         </Card>
       </div>

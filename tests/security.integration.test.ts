@@ -309,8 +309,8 @@ describe("security smoke", () => {
 
   it("queues a fresh re-render for a ready variant and rejects processing variants", async () => {
     const lesson = await createLesson("Recreate");
-    await prisma.narrationSegment.create({
-      data: { lessonId: lesson.id, pageNumber: 1, locale: "en", script: "Narration" },
+    await prisma.lessonPage.create({
+      data: { lessonId: lesson.id, pageNumber: 1, text: "Photosynthesis converts light into energy." },
     });
     await prisma.videoAsset.create({ data: { lessonId: lesson.id, locale: "en", status: "READY" } });
 
@@ -336,24 +336,45 @@ describe("security smoke", () => {
     const first = await post(teacherHeaders);
     expect(first.status).toBe(202);
     const second = await post(teacherHeaders);
-    expect(second.status).toBe(202);
+    expect(second.status).toBe(409);
 
     const queued = await jobsForLesson();
-    expect(queued).toHaveLength(2);
-    const runIds = queued.map((job) => job?.data.runId);
-    expect(runIds.every(Boolean)).toBe(true);
-    expect(new Set(runIds).size).toBe(2);
-    expect(queued.every((job) => job && job.id === queueModule.jobIdFor(job.data))).toBe(true);
+    expect(queued).toHaveLength(1);
+    expect(queued[0]?.name).toBe("narration");
+    expect(queued[0]?.data.runId).toBeTruthy();
+    expect(queued[0]?.id).toBe(queueModule.jobIdFor(queued[0]!.data));
 
-    await prisma.videoAsset.update({
-      where: { lessonId_locale: { lessonId: lesson.id, locale: "en" } },
-      data: { status: "PENDING" },
-    });
     const rejected = await post(teacherHeaders);
     expect(rejected.status).toBe(409);
-    expect(await jobsForLesson()).toHaveLength(2);
+    expect(await jobsForLesson()).toHaveLength(1);
 
     await queueModule.removeJobsForLesson(lesson.id, lesson.jobVersion);
+  });
+
+  it("does not queue video work for a cancelled lesson", async () => {
+    const lesson = await createLesson("Cancelled video");
+    await prisma.lessonPage.create({
+      data: { lessonId: lesson.id, pageNumber: 1, text: "Photosynthesis converts light into energy." },
+    });
+    await prisma.lesson.update({ where: { id: lesson.id }, data: { status: "CANCELLED" } });
+
+    const response = await videoRoute.POST(
+      new Request(`http://localhost:3000/api/admin/lessons/${lesson.id}/video`, {
+        method: "POST",
+        headers: {
+          cookie: `teacher_session=${cookie}`,
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ locale: "en" }),
+      }),
+      { params: Promise.resolve({ lessonId: lesson.id }) },
+    );
+    expect(response.status).toBe(409);
+    const jobs = await queueModule
+      .getLessonQueue()
+      .getJobs(["waiting", "delayed", "paused", "prioritized", "active"]);
+    expect(jobs.filter((job) => job?.data.lessonId === lesson.id)).toHaveLength(0);
   });
 
   it("serves video range requests and reconnects SSE status streams", async () => {

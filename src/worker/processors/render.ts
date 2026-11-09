@@ -11,7 +11,6 @@ import type { ImageProvider } from "@/server/media/image";
 import { ensureLessonVisual } from "@/server/media/lesson-visual";
 import { composeLessonVideo, type SlideInput } from "@/server/media/render-video";
 import type { PipelineJob } from "@/server/queue";
-import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { getStorage, type LocalStorage } from "@/server/storage";
 
 async function markVideo(
@@ -46,7 +45,6 @@ export async function processRender(
 
   const skip = async (reason: string) => {
     await markVideo(lesson.id, locale, "SKIPPED", { error: reason }, db);
-    await setLessonStatus(lesson.id, "READY", {}, db);
     logger.warn({ lessonId: lesson.id, locale, reason }, "video rendering skipped");
   };
 
@@ -135,7 +133,6 @@ export async function processRender(
         },
         db,
       );
-      await setLessonStatus(lesson.id, "READY", {}, db);
     } finally {
       await rm(workDir, { recursive: true, force: true });
     }
@@ -143,6 +140,5 @@ export async function processRender(
     const message = error instanceof Error ? error.message.slice(0, 1000) : "Video rendering failed";
     logger.error({ lessonId: lesson.id, locale, err: error }, "video rendering failed");
     await markVideo(lesson.id, locale, "FAILED", { error: message }, db);
-    await setLessonStatus(lesson.id, "READY", {}, db);
   }
 }

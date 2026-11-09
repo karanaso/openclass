@@ -21,14 +21,8 @@ export type GeneratedQuestion = {
   explanation: LocaleText;
 };
 
-export type GeneratedNarration = {
-  pageNumber: number;
-  script: LocaleText;
-};
-
 export type GeneratedArtifacts = {
   cards: GeneratedCard[];
   questionnaire: GeneratedQuestion[];
   game: GeneratedQuestion[];
-  narration: GeneratedNarration[];
 };

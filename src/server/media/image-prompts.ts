@@ -1,4 +1,6 @@
-export const VISUAL_PROMPT_VERSION = "v1";
+import type { ArtBrief } from "./art-direction";
+
+export const VISUAL_PROMPT_VERSION = "v2";
 export const MAX_VISUAL_EXCERPT_CHARS = 1_200;
 
 export type VisualPromptPage = {
@@ -9,6 +11,7 @@ export type VisualPromptPage = {
 export type VisualPromptInput = {
   title: string;
   pages: VisualPromptPage[];
+  brief?: ArtBrief;
 };
 
 export function lessonExcerpt(pages: VisualPromptPage[], limit = MAX_VISUAL_EXCERPT_CHARS): string {
@@ -33,26 +36,55 @@ function lessonContext(input: VisualPromptInput): string {
     .join("\n");
 }
 
+function briefContext(input: VisualPromptInput): string {
+  const brief = input.brief;
+  if (!brief) {
+    return [
+      `Subject: ${input.title.replace(/\s+/g, " ").trim() || "the lesson topic"}`,
+      "Setting: a friendly illustrated environment inspired by the lesson excerpt",
+      "Mood: warm, curious, and encouraging",
+      "Palette: sky blue, leaf green, sunny yellow, and soft coral",
+    ].join("\n");
+  }
+
+  return [
+    `Subject: ${brief.subject}`,
+    `Setting: ${brief.setting}`,
+    `Mood: ${brief.mood}`,
+    `Palette: ${brief.palette.join(", ")}`,
+    `Character role: ${brief.character.role}`,
+    `Character form: ${brief.character.form}`,
+    `Character outfit: ${brief.character.outfit}`,
+    brief.character.props.length > 0 ? `Character props: ${brief.character.props.join(", ")}` : "",
+    `Scene composition: ${brief.sceneComposition}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function buildScenePrompt(input: VisualPromptInput): string {
   return [
     "Create a wide 16:9 illustrated background scene for a school lesson video.",
     lessonContext(input),
-    "Depict the lesson topic as a friendly, colorful, non-photorealistic scene that helps students recognize the subject at a glance.",
-    "Style: flat editorial illustration with simple shapes, soft color, and gentle depth.",
+    briefContext(input),
+    "Depict the brief as a friendly, colorful, non-photorealistic scene that helps students recognize the subject at a glance.",
+    "Style: polished flat editorial illustration with clean shapes, layered depth, soft lighting, and a cohesive palette.",
     "Composition: keep the right third visually calm and uncluttered so a separate character can stand there; keep the left two thirds suitable as a backdrop behind a slide.",
     SAFETY_CLAUSE,
-    "Do not render any characters or faces in the scene.",
+    "Do not render any characters, mascots, or faces in the scene.",
   ]
     .join("\n");
 }
 
 export function buildCharacterSheetPrompt(input: VisualPromptInput): string {
   return [
-    "Create one 1024x1024 PNG sprite sheet containing exactly four equal 512x512 cells in a 2x2 grid.",
-    "The sheet shows the same friendly, non-human cartoon mascot character in all four cells, full body, centered in its cell, at the same scale and with both feet on the same baseline.",
-    "Top-left: neutral standing pose. Top-right: the same pose with eyes closed for a blink. Bottom-left: one arm raised in a friendly wave. Bottom-right: a calm neutral pose with a slight lean.",
+    "Create one 1536x1024 PNG sprite sheet containing exactly six equal 512x512 cells arranged in a 3x2 grid (three columns, two rows).",
+    "The sheet shows the same friendly, non-human cartoon mascot character in all six cells, full body, centered in its cell, at the same scale, with the same proportions, outfit, palette, and both feet on the same baseline.",
+    "Top row, left to right: neutral standing pose; the same pose with eyes closed for a blink; the same pose with a closed, relaxed mouth.",
+    "Bottom row, left to right: the same pose with an open mouth as if speaking; one arm raised in a friendly wave; a calm neutral pose with a slight lean.",
+    lessonContext(input),
+    briefContext(input),
     "The background must be fully transparent (alpha channel), with no scenery behind the character in any cell.",
-    `Give the mascot a simple visual detail that fits this lesson without adding words or symbols:\n${lessonContext(input)}`,
     "Style: bold, simple, flat cartoon shapes with clean outlines and soft, friendly colors; readable at small size.",
     SAFETY_CLAUSE,
     "Do not draw grid lines, borders, panel dividers, or pose labels between or inside the cells.",

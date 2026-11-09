@@ -36,7 +36,15 @@ describe("parseEnv", () => {
     const env = parseEnv(base);
     expect(effectiveImageProvider(env)).toBe("mock");
     expect(env.OPENAI_IMAGE_MODEL).toBe("gpt-image-1");
-    expect(env.OPENAI_IMAGE_QUALITY).toBe("medium");
+    expect(env.OPENAI_IMAGE_QUALITY).toBe("high");
+  });
+
+  it("defaults the art-direction model to the text model", () => {
+    expect(parseEnv(base).OPENAI_ART_DIRECTION_MODEL).toBeUndefined();
+    expect(parseEnv({ ...base, OPENAI_TEXT_MODEL: "gpt-test" }).OPENAI_TEXT_MODEL).toBe("gpt-test");
+    expect(parseEnv({ ...base, OPENAI_ART_DIRECTION_MODEL: "gpt-brief" }).OPENAI_ART_DIRECTION_MODEL).toBe(
+      "gpt-brief",
+    );
   });
 
   it("requires an OpenAI key when image generation explicitly selects OpenAI", () => {

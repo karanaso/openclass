@@ -49,7 +49,7 @@
   "home": {
     "badge": "AI · PDF → Cards · Video · Game · Quiz",
     "title": "Turn every lesson into an experience",
-    "subtitle": "Upload your PDFs and get study cards, video, a game, and assessment — automatically, in Greek and English.",
+    "subtitle": "Upload your PDFs and get study cards, video, a game, and assessment in Greek and English. Video is generated when you ask.",
     "teacherCta": "Teacher login",
     "featureCardsTitle": "Study cards",
     "featureCards": "Short cards that keep the essence of each lesson.",
@@ -133,6 +133,15 @@
     "characterGenerating": "Character rendering",
     "characterUnavailable": "Character unavailable",
     "characterNotGenerated": "Not generated",
+    "artwork": "Artwork",
+    "artworkScene": "Scene",
+    "artworkCharacter": "Character sheet",
+    "artworkSceneAlt": "Lesson scene preview",
+    "artworkCharacterAlt": "Character sheet preview",
+    "regenerateArtwork": "Regenerate artwork",
+    "generateArtwork": "Generate artwork",
+    "artworkRegenerating": "Regenerating artwork",
+    "artworkLastError": "The last artwork attempt failed. Previous artwork stays in use when available.",
     "generateVariant": "Generate variant",
     "playVariant": "Play",
     "recreateVariant": "Recreate",
@@ -212,7 +221,7 @@
       "CANCELLED": "Cancelled"
     },
     "videoStatus": {
-      "PENDING": "Pending",
+      "PENDING": "Preparing video",
       "RENDERING": "Rendering",
       "READY": "Ready",
       "FAILED": "Failed",

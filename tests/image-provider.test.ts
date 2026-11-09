@@ -85,7 +85,7 @@ describe("mock image provider", () => {
       ).stdout;
 
     expect(await probe("mock-scene.png")).toBe("width=1536\nheight=1024\npix_fmt=rgb24\n");
-    expect(await probe("mock-character-sheet.png")).toBe("width=1024\nheight=1024\npix_fmt=rgba\n");
+    expect(await probe("mock-character-sheet.png")).toBe("width=1536\nheight=1024\npix_fmt=rgba\n");
   });
 });
 
@@ -123,7 +123,7 @@ describe("OpenAI image provider", () => {
     expect(body.prompt).toContain("Photosynthesis");
   });
 
-  it("requests a transparent 1024x1024 character sheet", async () => {
+  it("requests a transparent 1536x1024 six-cell character sheet at high quality by default", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("png").toString("base64") }] }), {
         status: 200,
@@ -135,7 +135,8 @@ describe("OpenAI image provider", () => {
     await new OpenAIImageProvider().generateCharacterSheet(promptInput);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(String(init.body));
-    expect(body.size).toBe("1024x1024");
+    expect(body.size).toBe("1536x1024");
+    expect(body.quality).toBe("high");
     expect(body.background).toBe("transparent");
     expect(body.output_format).toBe("png");
   });

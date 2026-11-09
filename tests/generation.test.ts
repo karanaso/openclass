@@ -32,12 +32,10 @@ async function makeRaw() {
   const cards = await provider.cards(input);
   const questionnaire = await provider.questions(input, "questionnaire");
   const game = await provider.questions(input, "game");
-  const narration = await provider.narration(input);
   return {
     cards: cards.items,
     questionnaire: questionnaire.items,
     game: game.items,
-    narration: narration.items,
   };
 }
 
@@ -174,7 +172,7 @@ describe("artifact validation", () => {
     const artifacts = validateGeneratedArtifacts(raw, pages, counts);
     expect(artifacts.cards.length).toBeGreaterThanOrEqual(2);
     expect(artifacts.questionnaire.length).toBeGreaterThanOrEqual(3);
-    expect(artifacts.narration).toHaveLength(2);
+    expect(artifacts).not.toHaveProperty("narration");
     expect(artifacts.questionnaire[0].options.el.map((option) => option.id)).toEqual(
       artifacts.questionnaire[0].options.en.map((option) => option.id),
     );
@@ -228,17 +226,8 @@ describe("artifact validation", () => {
     expect(() => validateGeneratedArtifacts({ ...raw, cards: raw.cards.slice(0, 1) }, pages, counts)).toThrow(/cards must contain/);
   });
 
-  it("rejects unresolved narration duplicates and wrong question option counts", async () => {
+  it("rejects wrong question option counts without requiring narration", async () => {
     const raw = await makeRaw();
-    const pageOne = raw.narration.find((segment) => segment.pageNumber === 1)!;
-    const pageTwo = raw.narration.find((segment) => segment.pageNumber === 2)!;
-
-    expect(() => validateGeneratedArtifacts({ ...raw, narration: [pageOne] }, pages, counts)).toThrow(
-      /narration missing page 2/,
-    );
-    expect(() => validateGeneratedArtifacts({ ...raw, narration: [pageOne, pageOne, pageTwo] }, pages, counts)).toThrow(
-      /duplicate narration for page 1/,
-    );
 
     const multipleChoice = raw.game.find((question) => question.type === "MULTIPLE_CHOICE")!;
     const threeOptionGame = raw.game.map((question) =>

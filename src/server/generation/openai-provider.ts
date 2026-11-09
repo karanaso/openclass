@@ -13,7 +13,7 @@ import {
   type RawQuestion,
 } from "./schemas";
 
-function strictify(value: unknown): unknown {
+export function strictify(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(strictify);
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
@@ -31,7 +31,7 @@ function strictify(value: unknown): unknown {
   return value;
 }
 
-function extractOutputText(data: Record<string, unknown>): string {
+export function extractOutputText(data: Record<string, unknown>): string {
   if (typeof data.output_text === "string" && data.output_text.length > 0) return data.output_text;
   const output = data.output as Array<{ content?: Array<{ type?: string; text?: string }> }> | undefined;
   return (output ?? [])
