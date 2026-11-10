@@ -25,7 +25,7 @@ Before a lesson's video artwork is generated, the worker asks `OPENAI_ART_DIRECT
 
 If the text call fails, the worker uses a deterministic fallback brief and records `artBriefFallback=true`; artwork generation continues. No student data enters the brief.
 
-There is no OpenAI model named `gpt-4-mini`. Use `gpt-4.1-mini` for the brief and keep `gpt-image-1` at `high` quality for the final artwork. `gpt-image-1-mini` is an explicit lower-cost, lower-fidelity image option.
+There is no OpenAI model named `gpt-4-mini`. Use `gpt-4.1-mini` for the brief and keep `OPENAI_IMAGE_MODEL` at `high` quality for the final artwork. The default is `gpt-image-1-mini`, which is verified available. The configured model must exist for the account; check with `curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"` and set `OPENAI_IMAGE_MODEL` to a listed model if needed. Newer `gpt-image-*` models can be selected explicitly for higher fidelity.
 
 ## Generation contract
 
@@ -85,7 +85,7 @@ Every content and narration job records model, prompt version, input/output toke
 OPENAI_API_KEY=sk-...
 OPENAI_TEXT_MODEL=gpt-4.1-mini
 OPENAI_ART_DIRECTION_MODEL=gpt-4.1-mini
-OPENAI_IMAGE_MODEL=gpt-image-1
+OPENAI_IMAGE_MODEL=gpt-image-1-mini
 OPENAI_IMAGE_QUALITY=high
 AI_PROVIDER=openai
 CARD_MIN=8

@@ -135,6 +135,7 @@ describe("OpenAI image provider", () => {
     await new OpenAIImageProvider().generateCharacterSheet(promptInput);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     const body = JSON.parse(String(init.body));
+    expect(body.model).toBe("gpt-image-1-mini");
     expect(body.size).toBe("1536x1024");
     expect(body.quality).toBe("high");
     expect(body.background).toBe("transparent");
@@ -144,5 +145,35 @@ describe("OpenAI image provider", () => {
   it("propagates provider errors", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("moderation blocked", { status: 400 })));
     await expect(new OpenAIImageProvider().generateScene(promptInput)).rejects.toThrow(/400/);
+  });
+
+  it("maps a missing model to an actionable failure", async () => {
+    process.env.OPENAI_IMAGE_MODEL = "gpt-image-missing";
+    resetEnvCache();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                message: "The model 'gpt-image-missing' does not exist.",
+                type: "image_generation_user_error",
+                param: "model",
+                code: null,
+              },
+            }),
+            { status: 400, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+
+    await expect(new OpenAIImageProvider().generateScene(promptInput)).rejects.toMatchObject({
+      code: "image_model_unavailable",
+      message: expect.stringContaining("gpt-image-missing"),
+    });
+    await expect(new OpenAIImageProvider().generateScene(promptInput)).rejects.toMatchObject({
+      message: expect.stringContaining("OPENAI_IMAGE_MODEL"),
+    });
   });
 });

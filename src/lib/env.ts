@@ -16,7 +16,7 @@ const envSchema = z
     OPENAI_TEXT_MODEL: z.string().default("gpt-4.1-mini"),
     OPENAI_ART_DIRECTION_MODEL: z.string().optional(),
     OPENAI_TTS_MODEL: z.string().default("gpt-4o-mini-tts"),
-    OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1"),
+    OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1-mini"),
     OPENAI_IMAGE_QUALITY: z.enum(["low", "medium", "high", "auto"]).default("high"),
     OPENAI_TTS_VOICE_EL: z.string().default("alloy"),
     OPENAI_TTS_VOICE_EN: z.string().default("alloy"),

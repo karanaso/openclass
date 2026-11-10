@@ -35,7 +35,7 @@ describe("parseEnv", () => {
   it("follows AI_PROVIDER for image generation and sets image defaults", () => {
     const env = parseEnv(base);
     expect(effectiveImageProvider(env)).toBe("mock");
-    expect(env.OPENAI_IMAGE_MODEL).toBe("gpt-image-1");
+    expect(env.OPENAI_IMAGE_MODEL).toBe("gpt-image-1-mini");
     expect(env.OPENAI_IMAGE_QUALITY).toBe("high");
   });
 

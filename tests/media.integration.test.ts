@@ -8,6 +8,7 @@ import type { PrismaClient } from "@prisma/client";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
+import { AppError } from "@/lib/errors";
 import { MockImageProvider, type ImageProvider } from "@/server/media/image";
 import type { VisualPromptInput } from "@/server/media/image-prompts";
 import { ensureLessonVisual } from "@/server/media/lesson-visual";
@@ -130,6 +131,20 @@ class FailingImageProvider implements ImageProvider {
 
   async generateCharacterSheet(): Promise<never> {
     throw new Error("image provider unavailable");
+  }
+}
+
+class MissingModelImageProvider implements ImageProvider {
+  async generateScene(): Promise<never> {
+    throw new AppError(
+      "image_model_unavailable",
+      'The image model "gpt-image-1-mini" is not available to the configured account. Set OPENAI_IMAGE_MODEL to a model the account exposes (verify with GET /v1/models).',
+      500,
+    );
+  }
+
+  async generateCharacterSheet(): Promise<never> {
+    return this.generateScene();
   }
 }
 
@@ -506,6 +521,34 @@ describe("speech and video", () => {
     const detail = await getLessonDetail(lesson.id);
     expect(detail.visual?.status).toBe("FAILED");
     expect(detail.visual?.error).toMatch(/image provider unavailable/);
+  });
+
+  it("records a missing image model without failing the lesson", async () => {
+    const lesson = await createMediaLesson("Missing image model");
+    const pages = await prisma.lessonPage.findMany({
+      where: { lessonId: lesson.id },
+      orderBy: { pageNumber: "asc" },
+    });
+
+    const result = await ensureLessonVisual(
+      { id: lesson.id, title: lesson.title, jobVersion: lesson.jobVersion, pages },
+      { db: prisma, storage: getStorage(), provider: new MissingModelImageProvider() },
+    );
+    expect(result).toBeNull();
+
+    const visual = await prisma.lessonVisual.findUniqueOrThrow({ where: { lessonId: lesson.id } });
+    expect(visual.status).toBe("FAILED");
+    expect(visual.error).toMatch(/gpt-image-1-mini/);
+    expect(visual.error).toMatch(/OPENAI_IMAGE_MODEL/);
+
+    const job = await prisma.generationJob.findUniqueOrThrow({
+      where: { lessonId_stage: { lessonId: lesson.id, stage: "VISUAL" } },
+    });
+    expect(job.status).toBe("FAILED");
+    expect(job.error).toMatch(/OPENAI_IMAGE_MODEL/);
+
+    const storedLesson = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(storedLesson.status).toBe("READY");
   });
 
   it("keeps usable artwork when a forced regeneration fails", async () => {

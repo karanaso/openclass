@@ -20,9 +20,21 @@ type ImageResponse = {
   error?: { message?: string };
 };
 
-async function readImageResponse(response: Response): Promise<Uint8Array> {
+function isMissingModelError(status: number, detail: string): boolean {
+  return status === 400 && /model/i.test(detail) && /(does not exist|not found|unknown|unsupported|invalid)/i.test(detail);
+}
+
+async function readImageResponse(response: Response, model: string): Promise<Uint8Array> {
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 400);
+    if (isMissingModelError(response.status, detail)) {
+      throw new AppError(
+        "image_model_unavailable",
+        `The image model "${model}" is not available to the configured account. Set OPENAI_IMAGE_MODEL to a model the account exposes (verify with GET /v1/models).`,
+        500,
+        { model },
+      );
+    }
     throw new Error(`OpenAI image request failed (${response.status}): ${detail}`);
   }
 
@@ -67,7 +79,7 @@ export class OpenAIImageProvider implements ImageProvider {
     });
 
     return {
-      data: await readImageResponse(response),
+      data: await readImageResponse(response, env.OPENAI_IMAGE_MODEL),
       extension: "png",
       model: env.OPENAI_IMAGE_MODEL,
     };
