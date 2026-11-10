@@ -7,7 +7,7 @@ Turn class PDFs into interactive lessons: study cards, a bilingual quiz bank, a 
 - Teacher-only admin with environment-configured credentials
 - Classes, bulk PDF upload, private storage, durable background processing
 - OpenAI-generated, source-grounded content in Greek and English
-- Teacher-triggered narrated video (TTS + ffmpeg) with WebVTT captions
+- Teacher-triggered AI storytelling video through a configurable video provider, with optional WebVTT captions and poster
 - Student share links, name-only entry, no accounts
 - Cards, video, game, and questionnaire in one tabbed lesson
 - Server-authoritative scoring, attempts, per-question analytics, CSV export
@@ -34,13 +34,16 @@ npm run dev          # web on http://localhost:3000
 npm run worker       # background pipeline, in another terminal
 ```
 
-Set `AI_PROVIDER=mock` and `TTS_PROVIDER=mock` to develop without an OpenAI key. Mock mode still runs the full pipeline, including real ffmpeg video rendering.
+Set `AI_PROVIDER=mock`, `TTS_PROVIDER=mock`, and `VIDEO_PROVIDER=mock` to develop without external keys. Video requests use bundled provider fixtures; the legacy local renderer is not invoked.
+
+In production, video generation requires an AI video server. Set `VIDEO_PROVIDER=api` and `VIDEO_AI_BASE_URL` (plus `VIDEO_AI_API_KEY` when the server requires it). See `docs/media.md` for the provider contract and limits.
 
 ## Production
 
 ```bash
 cp .env.example .env
-# Set AUTH_SECRET, TEACHER_PASSWORD, OPENAI_API_KEY, APP_BASE_URL
+# Set AUTH_SECRET, TEACHER_PASSWORD, OPENAI_API_KEY, APP_BASE_URL,
+# VIDEO_PROVIDER=api, and VIDEO_AI_BASE_URL
 docker compose build
 docker compose up -d
 ```

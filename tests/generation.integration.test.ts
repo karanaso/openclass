@@ -139,6 +139,9 @@ describe("generation orchestration", () => {
         narrationCalls += 1;
         throw new Error("narration should not run during content generation");
       },
+      story: async () => {
+        throw new Error("story should not run during content generation");
+      },
     };
 
     const result = await orchestrator.generateLessonContent(lesson.id, {
@@ -209,6 +212,7 @@ describe("generation orchestration", () => {
       },
       questions: base.questions.bind(base),
       narration: base.narration.bind(base),
+      story: base.story.bind(base),
     };
 
     const result = await orchestrator.generateLessonContent(lesson.id, {
@@ -242,6 +246,9 @@ describe("generation orchestration", () => {
       narration: async () => {
         throw new Error("provider is down");
       },
+      story: async () => {
+        throw new Error("provider is down");
+      },
     };
 
     await expect(
@@ -269,6 +276,7 @@ describe("generation orchestration", () => {
         calls.push(input.pages.map((page) => page.pageNumber));
         return base.narration(input);
       },
+      story: base.story.bind(base),
     };
 
     const result = await ensureLessonNarration(lesson.id, { db: prisma, provider });
@@ -295,6 +303,7 @@ describe("generation orchestration", () => {
       narration: async () => {
         throw new Error("narration should not run again");
       },
+      story: base.story.bind(base),
     };
     const reused = await ensureLessonNarration(lesson.id, { db: prisma, provider: failingProvider });
     expect(reused.reused).toBe(true);
@@ -316,6 +325,7 @@ describe("generation orchestration", () => {
           .map((page) => ({ pageNumber: page.pageNumber, script: { el: "Σελίδα ένα", en: "Page one" } }));
         return { items, usage: { model: "gpt-test", inputTokens: 5, outputTokens: 5 } };
       },
+      story: base.story.bind(base),
     };
 
     await expect(ensureLessonNarration(lesson.id, { db: prisma, provider })).rejects.toThrow(/missing page 2/);
@@ -340,6 +350,7 @@ describe("generation orchestration", () => {
         narrationCalls += 1;
         return base.narration(input);
       },
+      story: base.story.bind(base),
     };
 
     await processNarration(

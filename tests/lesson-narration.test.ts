@@ -31,6 +31,9 @@ function provider(
       throw new Error("questions should not run");
     },
     narration,
+    story: async () => {
+      throw new Error("story should not run");
+    },
   };
 }
 

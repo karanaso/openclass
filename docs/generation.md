@@ -5,7 +5,7 @@
 ```
 PDF → extract pages/text → generate cards, questionnaire, game → publish → READY
 
-teacher requests a locale → narration scripts → TTS → video
+teacher requests a locale → bilingual story → AI video provider → video
 ```
 
 Extraction uses `unpdf`. A PDF with no selectable text fails with a clear "scanned or image-only PDFs are not supported" message. Page numbers are preserved and every generated item must cite one.
@@ -36,17 +36,21 @@ For each artifact, one structured response contains both locales:
 - True/false: exactly two options (`a`, `b`).
 - Multiple choice: exactly four options (`a–d`).
 
-Narration is not part of content generation. It is prepared by the manual `NARRATION` stage when a teacher requests a video variant. Answer keys and option ids are locale-independent by construction: the correct option id must exist in both locale option lists. The provider-facing question schema enforces the per-type option counts in both locales; a response with the wrong count fails schema parsing and consumes a generation retry instead of reaching artifact validation. Both the questionnaire and game prompts state the exact counts and ids.
+Story generation is not part of content generation. It is prepared by the manual `STORY` stage when a teacher requests a video variant. Answer keys and option ids are locale-independent by construction: the correct option id must exist in both locale option lists. The provider-facing question schema enforces the per-type option counts in both locales; a response with the wrong count fails schema parsing and consumes a generation retry instead of reaching artifact validation. Both the questionnaire and game prompts state the exact counts and ids.
 
-## Narration preparation
+## Story preparation
 
-Content generation never calls the narration provider. When a teacher requests a video variant, the `NARRATION` stage loads the lesson pages and prepares one script per page for both Greek and English.
+Content generation never calls the story provider. When a teacher requests a video variant, the `STORY` stage loads the lesson pages and writes one bilingual story with ordered, source-anchored scenes.
 
-- Provider narration is normalized: out-of-scope pages are discarded, the longest duplicate for a page is kept, and segments are ordered by ascending page number.
-- Existing complete scripts are reused. Only pages missing either locale are requested.
-- If the first pass omits a page, the stage makes one targeted repair request for only the missing pages.
-- If a page is still missing after repair, the requested locale's video variant is marked `FAILED` and the lesson stays `READY`.
-- Dropped segments are logged with their count and affected page numbers.
+- The story uses the lesson title and page-tagged text; the raw PDF and student data are not sent.
+- Every scene has Greek and English narration and at least one valid source page.
+- Long lessons are drafted in bounded chunks with `[Page N]` markers and merged into one continuous arc.
+- Every substantive page must be cited. One targeted repair request is made for missing or invalid scenes.
+- A current story is reused for the other locale and for Recreate. Publishing new content deletes it.
+- If the story is still invalid after repair, the requested locale's video variant is marked `FAILED` and the lesson stays `READY`.
+- Story model, prompt version, token usage, estimated cost, attempts, and errors are stored on the `STORY` generation job.
+
+Video submission to the AI provider is described in `docs/media.md`.
 
 ## Validation
 
@@ -92,6 +96,12 @@ GAME_MIN=10
 GAME_MAX=15
 GENERATION_MAX_ATTEMPTS=3
 DEFAULT_PASS_THRESHOLD=60
+
+# Story generation (STORY_MODEL defaults to OPENAI_TEXT_MODEL)
+# STORY_MODEL=
+STORY_MIN_SCENES=3
+STORY_MAX_SCENES=20
+STORY_CHUNK_CHARS=48000
 ```
 
 Keep prompts grounded in supplied text. Do not include student names, attempts, or results in any provider request.

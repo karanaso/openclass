@@ -62,13 +62,3 @@ export async function getTeacherSessionFromRequest(request: Request): Promise<Te
   if (!token) return null;
   return verifySessionToken(token);
 }
-
-export async function setTeacherSession(): Promise<void> {
-  const store = await cookies();
-  store.set(TEACHER_COOKIE, await createSessionToken(), sessionCookieOptions());
-}
-
-export async function clearTeacherSession(): Promise<void> {
-  const store = await cookies();
-  store.delete(TEACHER_COOKIE);
-}

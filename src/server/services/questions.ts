@@ -38,7 +38,6 @@ export const questionCreateSchema = questionContentSchema
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
 export type QuestionTranslationInput = z.infer<typeof questionTranslationSchema>;
 export type QuestionUpdateInput = z.infer<typeof questionUpdateSchema>;
-export type QuestionCreateInput = z.infer<typeof questionCreateSchema>;
 
 export type EditableQuestion = {
   id: string;

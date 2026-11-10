@@ -45,7 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   });
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE() {
   return withPublic(async () => {
     const response = NextResponse.json({ ok: true });
     for (const name of [STUDENT_COOKIE, STUDENT_NAME_COOKIE]) {

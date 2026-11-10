@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
 import { getStudentSession, getStudentSessionFromRequest, type StudentSession } from "@/server/auth/student";
 import { hashShareToken, resolveShareToken } from "@/server/services/share-links";
@@ -32,14 +31,4 @@ export function assertLessonInShare(share: StudentContext["share"], lessonId: st
     const allowed = share.class?.lessons.some((lesson) => lesson.id === lessonId);
     if (!allowed) throw new ForbiddenError("This link does not grant access to that lesson");
   }
-}
-
-export async function getSessionNameForDisplay(): Promise<string | null> {
-  const session = await getStudentSession();
-  return session?.name ?? null;
-}
-
-export async function clearStudentCookie(): Promise<void> {
-  const store = await cookies();
-  store.delete("student_session");
 }

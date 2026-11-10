@@ -22,7 +22,6 @@ export default async function ClassDetailPage({
   const { locale, classId } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("admin");
-  const lessonT = await getTranslations("student");
 
   let classroom;
   try {

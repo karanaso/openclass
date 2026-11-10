@@ -146,6 +146,7 @@
     "playVariant": "Play",
     "recreateVariant": "Recreate",
     "videoPreviewUnavailable": "Video unavailable. It may still be rendering or its file is missing.",
+    "videoProgress": "Generating video… {progress}%",
     "processingHint": "Processing continues in the background. You can close this page.",
     "backToClasses": "Back to classes",
     "backToLesson": "Back to lesson",
@@ -243,6 +244,8 @@
       "quiz": "Quiz"
     },
     "unavailable": "This content is not available yet.",
+    "videoProcessing": "The video is being prepared.",
+    "videoProgress": "Generating video… {progress}%",
     "fallbackNotice": "Content is shown in the lesson's primary language.",
     "deckProgress": "Card {current} of {total}",
     "reveal": "Reveal",

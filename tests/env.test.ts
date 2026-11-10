@@ -70,4 +70,28 @@ describe("parseEnv", () => {
   it("rejects inverted content ranges", () => {
     expect(() => parseEnv({ ...base, CARD_MIN: "20", CARD_MAX: "5" })).toThrow(/CARD_MIN/);
   });
+
+  it("defaults video generation to disabled without network configuration", () => {
+    const env = parseEnv(base);
+    expect(env.VIDEO_PROVIDER).toBe("disabled");
+    expect(env.VIDEO_AI_BASE_URL).toBeUndefined();
+    expect(env.VIDEO_AI_POLL_INTERVAL_MS).toBe(5_000);
+    expect(env.STORY_MIN_SCENES).toBe(3);
+  });
+
+  it("accepts mock and disabled video providers without a base URL", () => {
+    expect(parseEnv({ ...base, VIDEO_PROVIDER: "mock" }).VIDEO_PROVIDER).toBe("mock");
+    expect(parseEnv({ ...base, VIDEO_PROVIDER: "disabled" }).VIDEO_PROVIDER).toBe("disabled");
+  });
+
+  it("requires a base URL for the HTTP video provider", () => {
+    expect(() => parseEnv({ ...base, VIDEO_PROVIDER: "api" })).toThrow(/VIDEO_AI_BASE_URL/);
+    expect(
+      parseEnv({ ...base, VIDEO_PROVIDER: "api", VIDEO_AI_BASE_URL: "https://video.example.test" }).VIDEO_PROVIDER,
+    ).toBe("api");
+  });
+
+  it("rejects inverted story scene ranges", () => {
+    expect(() => parseEnv({ ...base, STORY_MIN_SCENES: "10", STORY_MAX_SCENES: "5" })).toThrow(/STORY_MIN_SCENES/);
+  });
 });

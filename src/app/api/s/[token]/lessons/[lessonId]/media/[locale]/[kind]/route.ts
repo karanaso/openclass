@@ -24,7 +24,7 @@ export async function GET(
     const video = await prisma.videoAsset.findUnique({
       where: { lessonId_locale: { lessonId, locale } },
     });
-    if (!video || video.status !== "READY") throw new AppError("not_found", "Video not found", 404);
+    if (!video) throw new AppError("not_found", "Video not found", 404);
 
     const key = parsedKind === "video" ? video.storageKey : parsedKind === "captions" ? video.captionsKey : video.posterKey;
     if (!key) throw new AppError("not_found", "Media not found", 404);

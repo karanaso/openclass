@@ -29,9 +29,6 @@ export const cardCreateSchema = z.object({
   translations: cardTranslationsSchema,
 });
 
-export type CardUpdateInput = z.infer<typeof cardUpdateSchema>;
-export type CardCreateInput = z.infer<typeof cardCreateSchema>;
-
 export type LessonCardTranslation = { prompt: string; answer: string };
 
 export type LessonCard = {

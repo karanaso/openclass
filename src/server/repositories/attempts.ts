@@ -24,28 +24,6 @@ export type CreateAttemptInput = {
   startedAt?: Date;
 };
 
-export async function findCompletedAttempt(
-  input: { lessonId: string; normalizedStudentName: string; mode: AttemptMode; idempotencyKey?: string },
-  db: PrismaClient = defaultPrisma,
-) {
-  if (input.idempotencyKey) {
-    return db.attempt.findFirst({
-      where: { lessonId: input.lessonId, idempotencyKey: input.idempotencyKey, completedAt: { not: null } },
-      include: { answers: true },
-    });
-  }
-  return db.attempt.findFirst({
-    where: {
-      lessonId: input.lessonId,
-      normalizedStudentName: input.normalizedStudentName,
-      mode: input.mode,
-      completedAt: { not: null },
-    },
-    orderBy: { completedAt: "desc" },
-    include: { answers: true },
-  });
-}
-
 export async function listCompletedQuestionnairePercentages(
   lessonId: string,
   db: PrismaClient = defaultPrisma,

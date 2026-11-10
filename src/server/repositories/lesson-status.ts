@@ -17,15 +17,3 @@ export async function setLessonStatus(
     },
   });
 }
-
-export async function beginLessonStage(lessonId: string, status: LessonStatus, db: PrismaClient = defaultPrisma) {
-  return setLessonStatus(lessonId, status, { processingStartedAt: new Date() }, db);
-}
-
-export async function getLessonOrThrow(lessonId: string, db: PrismaClient = defaultPrisma) {
-  const lesson = await db.lesson.findUnique({ where: { id: lessonId }, include: { class: true } });
-  if (!lesson) {
-    throw new Error(`Lesson ${lessonId} not found`);
-  }
-  return lesson;
-}

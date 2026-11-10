@@ -184,6 +184,10 @@ export default async function LessonDetailPage({
                 locale: video.locale,
                 status: video.status,
                 error: video.error,
+                progress: video.progress,
+                hasVideo: Boolean(video.storageKey),
+                hasCaptions: Boolean(video.captionsKey),
+                hasPoster: Boolean(video.posterKey),
               }))}
             />
             <div className="flex items-center justify-between gap-2 border-t pt-2">

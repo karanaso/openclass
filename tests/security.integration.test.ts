@@ -152,7 +152,6 @@ describe("security smoke", () => {
     await createGameQuestion(lessonA.id);
     const share = await shareService.createShareLink({ lessonId: lessonA.id });
     const sessionCookie = await studentSession(share.token);
-    const url = `http://localhost:3000/api/s/${share.token}/lessons/${lessonA.id}/game/start`;
     const request = (lessonId: string) =>
       new Request(`http://localhost:3000/api/s/${share.token}/lessons/${lessonId}/game/start`, {
         method: "POST",
@@ -252,7 +251,7 @@ describe("security smoke", () => {
     expect((await attempt("10.9.9.9")).status).toBe(429);
   });
 
-  it("serves admin video previews only to teachers and scopes them to ready assets", async () => {
+  it("serves admin video previews only to teachers and scopes them to stored media", async () => {
     const lesson = await createLesson("Admin preview");
     const storageKey = `lessons/${lesson.id}/video/en.mp4`;
     const captionsKey = `lessons/${lesson.id}/video/en.vtt`;
@@ -304,7 +303,8 @@ describe("security smoke", () => {
       data: { status: "PENDING" },
     });
     const pending = await adminMediaRoute.GET(mediaRequest({ cookie: `teacher_session=${cookie}` }), params());
-    expect(pending.status).toBe(404);
+    expect(pending.status).toBe(200);
+    await pending.body?.cancel();
   });
 
   it("queues a fresh re-render for a ready variant and rejects processing variants", async () => {
@@ -340,7 +340,7 @@ describe("security smoke", () => {
 
     const queued = await jobsForLesson();
     expect(queued).toHaveLength(1);
-    expect(queued[0]?.name).toBe("narration");
+    expect(queued[0]?.name).toBe("story");
     expect(queued[0]?.data.runId).toBeTruthy();
     expect(queued[0]?.id).toBe(queueModule.jobIdFor(queued[0]!.data));
 

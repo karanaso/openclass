@@ -16,8 +16,6 @@ export const classInputSchema = z.object({
 
 export const classUpdateSchema = classInputSchema.partial();
 
-export type ClassInput = z.infer<typeof classInputSchema>;
-
 export const lessonTitleSchema = z
   .string()
   .trim()

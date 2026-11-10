@@ -8,9 +8,12 @@ import { processExtract } from "./processors/extract";
 import { processGenerate } from "./processors/generate";
 import { processNarration } from "./processors/narration";
 import { processRender } from "./processors/render";
+import { processStory } from "./processors/story";
 import { processTts } from "./processors/tts";
+import { processVideoPoll, processVideoSubmit } from "./processors/video";
 import { processVisual } from "./processors/visual";
-import { markMediaFailure } from "./failures";
+import { markMediaFailure, markStoryFailure } from "./failures";
+import { resumeVideoJobs } from "@/server/video/resume";
 
 export function createPipelineWorker(): Worker<PipelineJob> {
   const env = getEnv();
@@ -26,10 +29,16 @@ export function createPipelineWorker(): Worker<PipelineJob> {
           return processGenerate(data);
         case "narration":
           return processNarration(data);
+        case "story":
+          return processStory(data);
         case "tts":
           return processTts(data);
         case "visual":
           return processVisual(data);
+        case "video-submit":
+          return processVideoSubmit(data);
+        case "video-poll":
+          return processVideoPoll(data);
         case "render":
           return processRender(data);
         default:
@@ -56,10 +65,22 @@ export function createPipelineWorker(): Worker<PipelineJob> {
       "pipeline job failed",
     );
     if (job.attemptsMade >= maxAttempts) {
-      if (job.name === "narration" || job.name === "tts" || job.name === "render") {
+      if (
+        job.name === "narration" ||
+        job.name === "story" ||
+        job.name === "tts" ||
+        job.name === "video-submit" ||
+        job.name === "video-poll" ||
+        job.name === "render"
+      ) {
         await markMediaFailure(job.data, error).catch((updateError) =>
           logger.error({ err: updateError }, "could not mark video failed"),
         );
+        if (job.name === "story") {
+          await markStoryFailure(job.data, error).catch((updateError) =>
+            logger.error({ err: updateError }, "could not mark story failed"),
+          );
+        }
         return;
       }
 
@@ -81,6 +102,7 @@ export function createPipelineWorker(): Worker<PipelineJob> {
 
 if (process.env.NODE_ENV !== "test" && process.env.WORKER_AUTOSTART !== "0") {
   const worker = createPipelineWorker();
+  void resumeVideoJobs().catch((error) => logger.error({ err: error }, "could not resume pending video jobs"));
   logger.info({ concurrency: 2 }, "lesson pipeline worker started");
 
   const shutdown = async (signal: string) => {

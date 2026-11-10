@@ -50,12 +50,12 @@ The system SHALL render every user-facing string for teacher and student surface
 
 ### Requirement: Localized generated content
 
-The system SHALL present cards, questionnaire items, game questions, narration, and video variants in the selected locale when that variant exists.
+The system SHALL present cards, questionnaire items, game questions, story narration, captions, and video variants in the selected locale when that variant exists.
 
 #### Scenario: Student selects English content
 
 - **WHEN** a student views a lesson in English
-- **THEN** cards, questions, and explanations are shown from the English variants
+- **THEN** cards, questions, explanations, and any available English story narration or captions are shown from the English variants
 
 #### Scenario: Missing content variant
 

@@ -44,7 +44,6 @@ export async function submitQuestionnaire(input: {
     }
   }
 
-  const byId = new Map(lesson.questions.map((question) => [question.id, question]));
   const answerMap = new Map(input.answers.map((answer) => [answer.questionId, answer.optionId]));
   const graded: Array<{ questionId: string; selectedOptionId: string; isCorrect: boolean }> = [];
   let score = 0;

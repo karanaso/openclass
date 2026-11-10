@@ -31,6 +31,7 @@ export async function publishArtifacts(
     await tx.card.deleteMany({ where: { lessonId } });
     await tx.question.deleteMany({ where: { lessonId } });
     await tx.narrationSegment.deleteMany({ where: { lessonId } });
+    await tx.lessonStory.deleteMany({ where: { lessonId } });
 
     for (const card of artifacts.cards) {
       await tx.card.create({

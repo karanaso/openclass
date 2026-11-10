@@ -22,12 +22,12 @@ The system SHALL extract text and page boundaries from each accepted PDF and SHA
 
 ### Requirement: Generated artifact set
 
-The system SHALL generate a study card deck, a questionnaire, and a game question set for every lesson, using configurable item counts. Narration scripts SHALL be prepared separately when a teacher requests a video variant.
+The system SHALL generate a study card deck, a questionnaire, and a game question set for every lesson, using configurable item counts. A bilingual story SHALL be prepared separately when a teacher requests a video variant.
 
 #### Scenario: All artifacts produced
 
 - **WHEN** generation completes successfully
-- **THEN** the lesson has a deck within the configured card range, a questionnaire within the configured item range, and a game set within the configured game range, without requiring narration to be present
+- **THEN** the lesson has a deck within the configured card range, a questionnaire within the configured item range, and a game set within the configured game range, without requiring a story to be present
 
 #### Scenario: Question format mix
 
@@ -36,7 +36,7 @@ The system SHALL generate a study card deck, a questionnaire, and a game questio
 
 ### Requirement: Source grounding
 
-The system SHALL derive every card, question, and explanation from the lesson text and SHALL attach a valid source page to each generated item. Narration preparation SHALL use the same lesson text and page boundaries when it runs.
+The system SHALL derive every card, question, and explanation from the lesson text and SHALL attach a valid source page to each generated item. Story preparation SHALL use the same lesson text and page boundaries when it runs.
 
 #### Scenario: Valid source reference
 
@@ -48,9 +48,14 @@ The system SHALL derive every card, question, and explanation from the lesson te
 - **WHEN** a generated item lacks a valid source page, has no correct answer, or duplicates an existing item
 - **THEN** the system discards or regenerates that item before publishing the artifact
 
+#### Scenario: Story shares the source pages
+
+- **WHEN** a story is prepared
+- **THEN** its scene anchors refer to the same extracted pages used for content generation
+
 ### Requirement: Bilingual output
 
-The system SHALL produce Greek and English variants for every deck card, questionnaire item, and game question, keeping item identity, answer keys, and correct-option positions aligned across locales. Narration SHALL be prepared in both locales when the first video variant is requested.
+The system SHALL produce Greek and English variants for every deck card, questionnaire item, and game question, keeping item identity, answer keys, and correct-option positions aligned across locales. The story SHALL be prepared in both locales when the first video variant is requested.
 
 #### Scenario: Aligned locales
 
@@ -61,6 +66,11 @@ The system SHALL produce Greek and English variants for every deck card, questio
 
 - **WHEN** the source PDF is written in Greek
 - **THEN** Greek content is treated as the primary variant and English is produced as a translation without changing the assessed facts
+
+#### Scenario: Story carries both locales
+
+- **WHEN** the story is prepared for the first video variant
+- **THEN** every scene contains Greek and English narration even though only one locale is submitted to the video provider
 
 ### Requirement: Validation before publication
 

@@ -59,8 +59,8 @@ export function LessonTabs({
   }
 
   const primaryVideo =
-    data.videos.find((video) => video.status === "READY" && video.locale === data.contentLocale) ??
-    data.videos.find((video) => video.status === "READY");
+    data.videos.find((video) => Boolean(video.videoUrl) && video.locale === data.contentLocale) ??
+    data.videos.find((video) => Boolean(video.videoUrl));
 
   return (
     <div className="space-y-6">
@@ -140,9 +140,20 @@ export function LessonTabs({
               </>
             ) : (
               <div className="rounded-2xl border border-dashed bg-card p-10 text-center text-muted-foreground">
-                {data.videos.some((video) => video.status === "RENDERING" || video.status === "PENDING")
-                  ? t("unavailable")
-                  : t("unavailable")}
+                {data.videos.some((video) => video.status === "RENDERING" || video.status === "PENDING") ? (
+                  <div className="space-y-1">
+                    <p>{t("videoProcessing")}</p>
+                    {typeof data.videos.find((video) => video.progress !== null)?.progress === "number" ? (
+                      <p className="text-xs">
+                        {t("videoProgress", {
+                          progress: data.videos.find((video) => video.progress !== null)?.progress ?? 0,
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  t("unavailable")
+                )}
               </div>
             )}
           </div>

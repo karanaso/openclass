@@ -4,7 +4,16 @@ import { getRedis } from "./redis";
 
 export const LESSON_QUEUE = "lesson-pipeline";
 
-export type PipelineStage = "extract" | "generate" | "narration" | "tts" | "visual" | "render";
+export type PipelineStage =
+  | "extract"
+  | "generate"
+  | "narration"
+  | "story"
+  | "tts"
+  | "visual"
+  | "video-submit"
+  | "video-poll"
+  | "render";
 
 export type PipelineJob = {
   lessonId: string;

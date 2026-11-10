@@ -43,13 +43,13 @@ export async function POST(request: Request, context: { params: Promise<{ lesson
       try {
         await enqueueStage({
           lessonId,
-          stage: "narration",
+          stage: "story",
           version: lesson.jobVersion,
           locale: body.locale,
           runId: randomUUID(),
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message.slice(0, 1000) : "Could not queue narration";
+        const message = error instanceof Error ? error.message.slice(0, 1000) : "Could not queue video generation";
         await prisma.videoAsset
           .update({
             where: { lessonId_locale: { lessonId, locale: body.locale } },

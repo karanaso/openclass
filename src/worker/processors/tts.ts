@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { prisma as defaultPrisma } from "@/server/db";
-import { probeDurationMs, renderPdfPageImages } from "@/server/media/ffmpeg";
+import { probeDurationMs } from "@/server/media/ffmpeg";
 import { getTtsProvider, type TtsProvider } from "@/server/media/tts";
 import { enqueueStage, type PipelineJob } from "@/server/queue";
 import { getStorage, type LocalStorage } from "@/server/storage";
@@ -59,12 +59,4 @@ export async function processTts(
       runId: data.runId,
     });
   }
-}
-
-export async function ensurePageImages(
-  lessonId: string,
-  pdfPath: string,
-  storage: LocalStorage,
-): Promise<void> {
-  await renderPdfPageImages(pdfPath, `${storage.getRoot()}/lessons/${lessonId}/pages`, { prefix: "page" });
 }

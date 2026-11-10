@@ -2,7 +2,6 @@ import { ArrowLeft, Download } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import type { Locale } from "@/lib/locale";
 import { getClassResults } from "@/server/services/results";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { UnauthorizedError } from "@/lib/errors";
 import { getTeacherSession, getTeacherSessionFromRequest, type TeacherSession } from "./session";
 import { clientIpFromHeaders } from "./rate-limit";
@@ -34,8 +33,4 @@ export function assertSameOrigin(request: Request): void {
 
 export function clientIp(request: Request): string {
   return clientIpFromHeaders(request.headers);
-}
-
-export function jsonError(status: number, code: string, message: string, headers?: Record<string, string>) {
-  return NextResponse.json({ error: { code, message } }, { status, headers });
 }

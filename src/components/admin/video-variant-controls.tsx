@@ -7,7 +7,15 @@ import { useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-type VideoInfo = { locale: string; status: string; error: string | null };
+type VideoInfo = {
+  locale: string;
+  status: string;
+  error: string | null;
+  progress?: number | null;
+  hasVideo: boolean;
+  hasCaptions: boolean;
+  hasPoster: boolean;
+};
 
 function mediaUrl(lessonId: string, locale: string, kind: "video" | "captions" | "poster") {
   return `/api/admin/lessons/${encodeURIComponent(lessonId)}/media/${encodeURIComponent(locale)}/${kind}`;
@@ -52,8 +60,8 @@ export function VideoVariantControls({
       {(["el", "en"] as const).map((locale) => {
         const video = videos.find((item) => item.locale === locale);
         const status = pending === locale ? "PENDING" : video?.status;
-        const ready = status === "READY";
-        const processing = status === "PENDING" || status === "RENDERING";
+        const playable = Boolean(video?.hasVideo);
+        const processing = Boolean(video) && (status === "PENDING" || status === "RENDERING");
         const canRecreate = Boolean(video) && !processing;
         const label = locale === "el" ? "Ελληνικά" : "English";
 
@@ -79,7 +87,7 @@ export function VideoVariantControls({
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-1">
-                {ready ? (
+                {playable ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -123,26 +131,31 @@ export function VideoVariantControls({
                 ) : null}
               </div>
             </div>
+            {processing && typeof video?.progress === "number" ? (
+              <p className="text-xs text-muted-foreground">{t("videoProgress", { progress: video.progress })}</p>
+            ) : null}
             {video?.error && !processing ? (
               <p className="max-w-xs text-xs text-red-700">{video.error}</p>
             ) : null}
-            {previewLocale === locale ? (
+            {previewLocale === locale && playable ? (
               <div className="space-y-1">
                 <video
                   controls
                   preload="metadata"
-                  poster={mediaUrl(lessonId, locale, "poster")}
+                  poster={video?.hasPoster ? mediaUrl(lessonId, locale, "poster") : undefined}
                   className="w-full rounded-xl border bg-black"
                   data-testid={`video-preview-${locale}`}
                   onError={() => setPreviewError(locale)}
                 >
                   <source src={mediaUrl(lessonId, locale, "video")} type="video/mp4" />
-                  <track
-                    kind="captions"
-                    src={mediaUrl(lessonId, locale, "captions")}
-                    srcLang={locale}
-                    default
-                  />
+                  {video?.hasCaptions ? (
+                    <track
+                      kind="captions"
+                      src={mediaUrl(lessonId, locale, "captions")}
+                      srcLang={locale}
+                      default
+                    />
+                  ) : null}
                 </video>
                 {previewError === locale ? (
                   <p role="alert" className="text-xs text-red-700">

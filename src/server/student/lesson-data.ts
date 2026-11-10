@@ -28,6 +28,8 @@ export type QuestionnaireResult = {
 export type StudentVideo = {
   locale: string;
   status: string;
+  progress: number | null;
+  error: string | null;
   videoUrl: string | null;
   captionsUrl: string | null;
   posterUrl: string | null;
@@ -140,18 +142,17 @@ export async function loadLessonForStudent(input: {
   const videos: StudentVideo[] = lesson.videos.map((video) => ({
     locale: video.locale,
     status: video.status,
-    videoUrl:
-      video.status === "READY"
-        ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/video`
-        : null,
-    captionsUrl:
-      video.status === "READY"
-        ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/captions`
-        : null,
-    posterUrl:
-      video.status === "READY"
-        ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/poster`
-        : null,
+    progress: video.progress,
+    error: video.error,
+    videoUrl: video.storageKey
+      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/video`
+      : null,
+    captionsUrl: video.captionsKey
+      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/captions`
+      : null,
+    posterUrl: video.posterKey
+      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/poster`
+      : null,
   }));
 
   const existingAttempt = lesson.attempts[0];

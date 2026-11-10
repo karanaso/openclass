@@ -19,7 +19,3 @@ export const logger = pino({
   base: { service: "opencode-class" },
   timestamp: pino.stdTimeFunctions.isoTime,
 });
-
-export function childLogger(bindings: Record<string, unknown>) {
-  return logger.child(bindings);
-}

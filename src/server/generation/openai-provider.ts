@@ -2,8 +2,10 @@ import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { buildStoryPrompt } from "@/server/story/prompts";
+import { rawStorySchema, type RawStory } from "@/server/story/schemas";
 import { buildPrompt } from "./prompts";
-import type { ContentProvider, GenerationInput, ProviderResult } from "./provider";
+import type { ContentProvider, GenerationInput, ProviderResult, StoryGenerationInput } from "./provider";
 import {
   cardsArtifactSchema,
   narrationArtifactSchema,
@@ -45,14 +47,14 @@ export class OpenAIContentProvider implements ContentProvider {
   private async call<T>(
     name: string,
     schema: z.ZodType<T>,
-    input: GenerationInput,
+    prompt: { system: string; user: string },
+    model = getEnv().OPENAI_TEXT_MODEL,
   ): Promise<{ parsed: T; model: string; inputTokens: number; outputTokens: number }> {
     const env = getEnv();
     if (!env.OPENAI_API_KEY) {
       throw new AppError("missing_openai_key", "OPENAI_API_KEY is not configured", 500);
     }
 
-    const prompt = buildPrompt(input);
     const jsonSchema = strictify(zodToJsonSchema(schema, { target: "jsonSchema7", $refStrategy: "none" }));
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -62,7 +64,7 @@ export class OpenAIContentProvider implements ContentProvider {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: env.OPENAI_TEXT_MODEL,
+        model,
         input: [
           { role: "system", content: prompt.system },
           { role: "user", content: prompt.user },
@@ -102,14 +104,14 @@ export class OpenAIContentProvider implements ContentProvider {
     const usage = data.usage as { input_tokens?: number; output_tokens?: number } | undefined;
     return {
       parsed: schema.parse(parsedJson),
-      model: env.OPENAI_TEXT_MODEL,
+      model,
       inputTokens: usage?.input_tokens ?? Math.ceil(prompt.user.length / 4),
       outputTokens: usage?.output_tokens ?? Math.ceil(text.length / 4),
     };
   }
 
   async cards(input: GenerationInput): Promise<ProviderResult<RawCard[]>> {
-    const result = await this.call("lesson_cards", cardsArtifactSchema, input);
+    const result = await this.call("lesson_cards", cardsArtifactSchema, buildPrompt(input));
     return {
       items: result.parsed.cards,
       usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
@@ -117,7 +119,11 @@ export class OpenAIContentProvider implements ContentProvider {
   }
 
   async questions(input: GenerationInput, mode: "questionnaire" | "game"): Promise<ProviderResult<RawQuestion[]>> {
-    const result = await this.call(`${mode}_questions`, questionsArtifactSchema, { ...input, kind: mode });
+    const result = await this.call(
+      `${mode}_questions`,
+      questionsArtifactSchema,
+      buildPrompt({ ...input, kind: mode }),
+    );
     return {
       items: result.parsed.questions,
       usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
@@ -125,9 +131,23 @@ export class OpenAIContentProvider implements ContentProvider {
   }
 
   async narration(input: GenerationInput): Promise<ProviderResult<RawNarration[]>> {
-    const result = await this.call("lesson_narration", narrationArtifactSchema, input);
+    const result = await this.call("lesson_narration", narrationArtifactSchema, buildPrompt(input));
     return {
       items: result.parsed.segments,
+      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+    };
+  }
+
+  async story(input: StoryGenerationInput): Promise<ProviderResult<RawStory>> {
+    const env = getEnv();
+    const result = await this.call(
+      "lesson_story",
+      rawStorySchema,
+      buildStoryPrompt(input),
+      env.STORY_MODEL ?? env.OPENAI_TEXT_MODEL,
+    );
+    return {
+      items: result.parsed,
       usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
     };
   }

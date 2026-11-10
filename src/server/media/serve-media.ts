@@ -8,8 +8,6 @@ export const MEDIA_CONTENT_TYPES = {
   poster: "image/jpeg",
 } as const;
 
-export type MediaKind = keyof typeof MEDIA_CONTENT_TYPES;
-
 export type ServeMediaOptions = {
   key: string;
   contentType: string;

@@ -8,118 +8,22 @@ Produce a narrated video for each lesson directly from its PDF pages, and let st
 
 ### Requirement: Manual video generation
 
-The system SHALL start TTS and video rendering only when an authenticated teacher requests a video variant for a supported locale. Completing content generation SHALL NOT enqueue TTS or render work.
+The system SHALL start story preparation and video-provider work only when an authenticated teacher requests a video variant for a supported locale. Completing content generation SHALL NOT enqueue story or video-provider work.
 
 #### Scenario: Content generation stops at READY
 
 - **WHEN** content generation completes
-- **THEN** the lesson is `READY` and no TTS or render job is queued
+- **THEN** the lesson is `READY` and no story or video-provider job is queued
 
 #### Scenario: Teacher requests a variant
 
 - **WHEN** the teacher chooses Generate for a locale
-- **THEN** the system queues narration preparation for that locale
+- **THEN** the system queues story preparation for that lesson variant
 
 #### Scenario: Regeneration stays manual
 
 - **WHEN** a lesson is retried or regenerated
 - **THEN** video work still waits for a teacher request instead of starting automatically
-
-### Requirement: Narration preparation stage
-
-The system SHALL prepare narration scripts for every lesson page before synthesizing audio for a requested video variant. The stage SHALL reuse complete scripts, prepare missing scripts when needed, and store Greek and English variants together.
-
-#### Scenario: Missing scripts prepared
-
-- **WHEN** a video variant is requested and narration is missing
-- **THEN** the narration stage prepares scripts for the missing pages before TTS starts
-
-#### Scenario: Existing scripts reused
-
-- **WHEN** a video variant is recreated and complete scripts exist
-- **THEN** the stage reuses them without calling the narration provider again
-
-#### Scenario: Both locales stored
-
-- **WHEN** narration is prepared
-- **THEN** both Greek and English scripts are stored for every prepared page
-
-#### Scenario: Recreate with missing scripts
-
-- **WHEN** Recreate is requested and scripts are missing
-- **THEN** the narration stage prepares them before TTS starts
-
-### Requirement: Narration normalization and coverage
-
-The system SHALL normalize provider narration to one segment per requested page, discard out-of-scope segments, keep the longest duplicate, order segments by ascending page, and verify that every requested page has a segment before synthesis.
-
-#### Scenario: Duplicate segments for the same page
-
-- **WHEN** the provider returns multiple segments for one page
-- **THEN** the system keeps the segment with the greatest combined Greek and English length and continues
-
-#### Scenario: Segments outside the request
-
-- **WHEN** the provider returns a segment for a page that was not requested
-- **THEN** the system discards that segment
-
-#### Scenario: Segments out of order
-
-- **WHEN** the provider returns narration segments out of ascending page order
-- **THEN** the system orders them by ascending page number before storing them
-
-#### Scenario: Missing page detected
-
-- **WHEN** normalization produces no segment for a requested page
-- **THEN** the system records that page as missing and starts the targeted repair pass
-
-#### Scenario: Normalization is observable
-
-- **WHEN** normalization drops duplicate or out-of-scope segments
-- **THEN** a structured warning records the count and affected page numbers
-
-### Requirement: Targeted narration repair
-
-If the first narration pass omits a page, the system SHALL make one targeted second request containing only the missing pages. It SHALL NOT repeat the full narration request for pages that already succeeded.
-
-#### Scenario: Missing pages retried
-
-- **WHEN** the first pass omits one or more pages
-- **THEN** the system requests narration again for only those missing pages
-
-#### Scenario: Complete first pass
-
-- **WHEN** the first pass covers every requested page
-- **THEN** the system does not make a repair request
-
-#### Scenario: Repair still incomplete
-
-- **WHEN** the targeted repair still omits a page
-- **THEN** the system stops retrying and applies video-variant failure isolation
-
-### Requirement: Narration failure isolation
-
-If narration is still missing a page after targeted repair, the system SHALL mark only the requested locale's video variant `FAILED` with a reason and SHALL leave the lesson, cards, questionnaire, game, attempts, and other locale usable.
-
-#### Scenario: Variant fails
-
-- **WHEN** narration remains incomplete after repair
-- **THEN** the requested locale's video variant is `FAILED` and the lesson stays `READY`
-
-#### Scenario: Other locale unaffected
-
-- **WHEN** one locale's narration fails
-- **THEN** the other locale's video variant and status are unchanged
-
-#### Scenario: Content unaffected
-
-- **WHEN** narration fails
-- **THEN** cards, questionnaire, game, and attempts remain available and unchanged
-
-#### Scenario: Teacher can retry
-
-- **WHEN** the teacher requests the failed variant again
-- **THEN** the system retries narration preparation and rendering for that locale
 
 ### Requirement: Media status independent from lesson status
 
@@ -140,80 +44,37 @@ Manual video work SHALL leave the lesson status unchanged and SHALL report progr
 - **WHEN** a video variant becomes `READY`
 - **THEN** the lesson status remains that of its content
 
-### Requirement: Automatic video rendering
-
-The system SHALL render each PDF page as a slide, synthesize narration for that page, and compose the slides and audio into a single MP4 with H.264 video and AAC audio. When a lesson visual set is ready, the system SHALL compose a side-panel layout with a designed slide card on the left and the lesson scene and animated character alongside it; otherwise it SHALL compose the existing full-slide layout.
-
-#### Scenario: Successful render
-
-- **WHEN** a lesson with a valid narration script finishes processing
-- **THEN** the system produces a playable MP4 whose slides follow the PDF page order and whose narration matches each slide
-
-#### Scenario: Narration pacing
-
-- **WHEN** a slide's narration audio is shorter or longer than a fixed display time
-- **THEN** the slide remains visible for the full duration of its narration plus the configured pause
-
-#### Scenario: Slides stay readable
-
-- **WHEN** a video is composed with the scene and character panel
-- **THEN** the full slide is visible without cropping and remains large enough to read its text
-
-#### Scenario: Standard layout without artwork
-
-- **WHEN** no ready visual set exists for the lesson
-- **THEN** the video renders in the existing full-slide layout and remains playable
-
-### Requirement: Scene and slide motion
-
-The system SHALL add subtle motion to a character-enhanced video: a slow scene pan or zoom that varies across slides, an entrance animation when a new slide appears, and a designed slide card with a soft shadow and vignette. Motion SHALL remain gentle enough that slide text stays readable.
-
-#### Scenario: Scene moves during a slide
-
-- **WHEN** a character-enhanced slide plays
-- **THEN** the background scene drifts or zooms slowly instead of remaining a frozen image
-
-#### Scenario: Slide enters
-
-- **WHEN** a new slide begins
-- **THEN** the slide card fades or drifts into place over a short entrance animation
-
-#### Scenario: Text stays readable
-
-- **WHEN** scene motion and slide entrance are applied
-- **THEN** the slide remains fully visible, unclipped, and readable for the slide's duration
-
 ### Requirement: Language variants
 
-The system SHALL let the teacher request a video variant for either supported locale, and SHALL generate each requested variant independently using narration prepared in that locale's language.
+The system SHALL let the teacher request a video variant for either supported locale, and SHALL generate each requested variant independently using story narration prepared in that locale's language.
 
 #### Scenario: Primary locale rendered
 
 - **WHEN** the teacher requests a Greek video variant
-- **THEN** the system prepares narration, synthesizes Greek audio, and renders the Greek variant without requiring the other locale
+- **THEN** the system prepares or reuses the story, submits the Greek narration to the provider, and exposes the Greek variant without requiring the other locale
 
 #### Scenario: Additional locale requested
 
 - **WHEN** the teacher requests an English variant for the same lesson
-- **THEN** the system reuses prepared narration scripts, synthesizes English audio, and exposes both variants when available
+- **THEN** the system reuses the stored story, submits the English narration, and exposes both variants when available
 
 ### Requirement: Video availability and failure isolation
 
-The system SHALL expose video status independently and SHALL keep cards, questionnaire, and game available when video rendering fails.
+The system SHALL expose video status independently and SHALL keep cards, questionnaire, and game available when story preparation or video-provider generation fails.
 
 #### Scenario: Video still rendering
 
-- **WHEN** a lesson's text artifacts are ready but its video is still rendering
-- **THEN** students can use the other tabs and the video tab shows a rendering state
+- **WHEN** a lesson's text artifacts are ready but its video is still processing
+- **THEN** students can use the other tabs and the video tab shows a processing state
 
 #### Scenario: Video render failure
 
-- **WHEN** video rendering fails
-- **THEN** the lesson remains usable, the video tab shows an unavailable state, and the teacher can retry rendering
+- **WHEN** story preparation or video-provider generation fails
+- **THEN** the lesson remains usable, the video tab shows an unavailable state, and the teacher can retry generation
 
 ### Requirement: Video playback
 
-The system SHALL stream rendered videos with seek support, show a poster frame before playback, and provide captions derived from the narration script.
+The system SHALL stream provider-produced videos with seek support and SHALL expose a poster and captions when the provider supplies them. Captions SHALL be displayed for the requested locale.
 
 #### Scenario: Seeking
 
@@ -222,21 +83,36 @@ The system SHALL stream rendered videos with seek support, show a poster frame b
 
 #### Scenario: Captions
 
-- **WHEN** captions are enabled during playback
-- **THEN** the narration text for the current slide is displayed synchronized with the audio
+- **WHEN** captions are enabled during playback and the provider supplied a WebVTT file
+- **THEN** the lesson narration text for the current scene is displayed synchronized with the video
+
+#### Scenario: Captions unavailable
+
+- **WHEN** the provider did not supply a WebVTT file
+- **THEN** the video still plays and the player does not request a missing captions track
+
+#### Scenario: Poster unavailable
+
+- **WHEN** the provider did not supply a poster
+- **THEN** the video still plays without requesting a missing poster
 
 ### Requirement: Video limits
 
-The system SHALL enforce configured limits on page count, rendered duration, and output size, and SHALL report when a lesson cannot be rendered within those limits.
+The system SHALL enforce configured limits on source page count, provider-reported duration, and downloaded output size, and SHALL report when a lesson cannot be produced within those limits.
 
 #### Scenario: Lesson exceeds limits
 
-- **WHEN** a PDF exceeds the configured page or duration limit
-- **THEN** video rendering is skipped or stopped with a clear reason while the lesson's other artifacts remain available
+- **WHEN** a PDF exceeds the configured page limit or the provider reports a duration above the configured maximum
+- **THEN** the variant is skipped or stopped with a clear reason while the lesson's other artifacts remain available
+
+#### Scenario: Output exceeds size limit
+
+- **WHEN** a downloaded video or poster exceeds the configured output size limit
+- **THEN** the system rejects that output and marks the variant failed with a clear reason
 
 ### Requirement: Private media handling
 
-The system SHALL store rendered media privately and SHALL serve it only to clients presenting a valid share token for the lesson.
+The system SHALL store provider media privately and SHALL serve it only to clients presenting a valid share token for the lesson.
 
 #### Scenario: Media without token
 
@@ -246,73 +122,7 @@ The system SHALL store rendered media privately and SHALL serve it only to clien
 #### Scenario: Lesson deletion cleans media
 
 - **WHEN** a lesson or its class is deleted
-- **THEN** its rendered videos, audio, and frames are removed from storage
-
-### Requirement: Character presence throughout the video
-
-The system SHALL show the animated character on every slide of a character-enhanced video, playing a continuous talking and idle animation for the slide's full duration. The poster image SHALL show the same composed layout.
-
-#### Scenario: Character on every slide
-
-- **WHEN** a character-enhanced video plays
-- **THEN** the character is visible on every slide from the first frame to the last
-
-#### Scenario: Poster matches the video
-
-- **WHEN** a student sees the video poster before playback
-- **THEN** the poster shows the slide, scene, and character in the same layout as the first video frame
-
-#### Scenario: Long slide
-
-- **WHEN** a slide lasts longer than one animation loop
-- **THEN** the character animation repeats smoothly for the entire slide
-
-### Requirement: Character motion polish
-
-The system SHALL animate the character with gentle vertical bob, breathing, and sway in addition to its pose loop, so the character never looks like a static pasted image.
-
-#### Scenario: Continuous motion
-
-- **WHEN** a character-enhanced video plays
-- **THEN** the character's position and scale change smoothly and continuously across the slide
-
-#### Scenario: Motion survives long slides
-
-- **WHEN** a slide lasts longer than one animation loop
-- **THEN** bob, breathing, and sway remain continuous without a visible reset
-
-### Requirement: Visual set reuse across language variants
-
-The system SHALL generate at most one visual set per lesson and SHALL use the same scene and character in every language variant of that lesson's video.
-
-#### Scenario: Second locale reuses artwork
-
-- **WHEN** the teacher requests the other language variant after a character-enhanced video exists
-- **THEN** the new variant uses the stored visual set without generating new artwork
-
-#### Scenario: One visual set per lesson
-
-- **WHEN** a lesson has videos in both locales
-- **THEN** both videos show the same scene and character design
-
-### Requirement: Visual enhancement failure isolation
-
-The system SHALL keep the video available in the standard layout when character or scene artwork is missing, invalid, or failed, and SHALL NOT fail the lesson because of the enhancement.
-
-#### Scenario: Artwork generation failed
-
-- **WHEN** visual generation failed for a lesson
-- **THEN** the video still renders and plays in the full-slide layout
-
-#### Scenario: Artwork unavailable during render
-
-- **WHEN** a video render starts but the visual set is not ready
-- **THEN** the render proceeds without the character instead of waiting indefinitely
-
-#### Scenario: Failure reason retained
-
-- **WHEN** a character-enhanced video falls back because of a visual failure
-- **THEN** the recorded visual status retains the reason the character is absent
+- **THEN** its videos, captions, posters, stories, and provider artifacts are removed from storage
 
 ### Requirement: Teacher video variant preview
 
@@ -340,22 +150,22 @@ The system SHALL let an authenticated teacher preview any `READY` video variant 
 
 ### Requirement: Teacher re-render a video variant
 
-The system SHALL let an authenticated teacher request a fresh render of a lesson's video variant for a supported locale, including when that variant is already `READY`, and SHALL limit the refresh to narration and video while preserving cards, questions, and the lesson visual set.
+The system SHALL let an authenticated teacher request a fresh provider render of a lesson's video variant for a supported locale, including when that variant is already `READY`, and SHALL limit the refresh to story reuse or regeneration and provider submission while preserving cards, questions, and attempts.
 
 #### Scenario: Recreate a ready variant
 
 - **WHEN** the teacher chooses Recreate next to a `READY` video variant
-- **THEN** the system queues a new render for that locale, shows the variant as processing, and leaves the other locale unchanged
+- **THEN** the system queues a new provider submission for that locale, shows the variant as processing, and leaves the other locale unchanged
 
 #### Scenario: Recreate after a previous render completed
 
-- **WHEN** the teacher requests Recreate for a variant whose earlier render job is still retained by the queue
-- **THEN** the system still starts a new render instead of treating the request as a duplicate of the completed job
+- **WHEN** the teacher requests Recreate for a variant whose earlier provider job is still retained by the queue
+- **THEN** the system still starts a new submission instead of treating the request as a duplicate of the completed job
 
 #### Scenario: Artwork is reused
 
-- **WHEN** a character-enhanced variant is recreated
-- **THEN** the new render reuses the lesson's existing visual set and generates no new artwork
+- **WHEN** a variant is recreated and the current story has not been invalidated
+- **THEN** the new submission uses the stored story instead of rewriting it
 
 #### Scenario: Recreate while already processing
 
@@ -371,3 +181,123 @@ The system SHALL let an authenticated teacher request a fresh render of a lesson
 
 - **WHEN** a client without a valid teacher session requests a re-render
 - **THEN** the system denies the request and queues no work
+
+### Requirement: Story-backed provider submission
+
+The system SHALL submit a video request only after a valid story exists for the lesson's current content version and the requested locale. The request SHALL contain the lesson title, the requested-locale scene narration, scene order, and page anchors, and SHALL NOT contain the raw PDF or student data.
+
+#### Scenario: Missing story prepared first
+
+- **WHEN** the teacher requests a video variant and no current story exists
+- **THEN** the system prepares the story before submitting any provider job
+
+#### Scenario: Stale story replaced
+
+- **WHEN** content generation has published a new lesson version
+- **THEN** the system regenerates the story before submitting the next provider job
+
+#### Scenario: Requested locale only
+
+- **WHEN** a Greek variant is submitted
+- **THEN** the provider receives the Greek scene narration and locale, not a request for the other locale
+
+#### Scenario: No student data
+
+- **WHEN** a video provider request is constructed
+- **THEN** it contains lesson content and instructions only, with no student identifiers, attempts, or results
+
+### Requirement: Provider job lifecycle
+
+The system SHALL submit each variant as a provider job, store the provider job identifier, and poll until a terminal state. In-progress states SHALL be exposed as `PENDING` or `RENDERING`, a completed job SHALL become `READY` only after successful ingestion, and a failed or timed-out job SHALL become `FAILED` with a readable reason.
+
+#### Scenario: Submission recorded
+
+- **WHEN** the provider accepts a video request
+- **THEN** the system stores the provider job identifier and marks the variant `RENDERING`
+
+#### Scenario: Progress observed
+
+- **WHEN** the provider reports an in-progress state
+- **THEN** the variant remains `RENDERING` and its progress or status detail is available to the teacher
+
+#### Scenario: Completion requires ingestion
+
+- **WHEN** the provider reports completion but the video has not been downloaded and verified
+- **THEN** the variant is not marked `READY`
+
+#### Scenario: Provider failure
+
+- **WHEN** the provider reports a terminal failure
+- **THEN** the variant is marked `FAILED` with the provider's reason
+
+#### Scenario: Provider timeout
+
+- **WHEN** polling exceeds the configured provider timeout
+- **THEN** the variant is marked `FAILED` with a timeout reason and can be retried
+
+#### Scenario: Worker restart
+
+- **WHEN** the worker restarts while a provider job is in progress
+- **THEN** polling resumes for that stored provider job instead of submitting a duplicate
+
+### Requirement: Provider output ingestion
+
+The system SHALL download the provider's video and store it under the lesson's per-locale video key. It SHALL store provider-supplied WebVTT captions and poster under the existing media keys, and SHALL verify that the downloaded video is non-empty, playable, within duration and size limits, and owned by the requested lesson before marking the variant `READY`.
+
+#### Scenario: Successful ingestion
+
+- **WHEN** the provider returns a valid completed video
+- **THEN** the system stores the MP4, records its duration and size, and marks the variant `READY`
+
+#### Scenario: Captions stored
+
+- **WHEN** the provider returns a WebVTT file
+- **THEN** the system stores it under the locale's captions key and exposes it to playback
+
+#### Scenario: Poster stored
+
+- **WHEN** the provider returns a poster image
+- **THEN** the system stores it under the locale's poster key and exposes it to playback
+
+#### Scenario: Invalid output rejected
+
+- **WHEN** the downloaded video is empty, not playable, or fails the configured limits
+- **THEN** the system does not mark the variant `READY` and records a clear failure reason
+
+### Requirement: Duplicate provider submission prevention
+
+The system SHALL allow at most one active provider job per lesson locale and SHALL use an idempotency key derived from the lesson, locale, and story version so repeated requests cannot start duplicate provider work.
+
+#### Scenario: Duplicate request while processing
+
+- **WHEN** the teacher requests a variant that is already `PENDING` or `RENDERING`
+- **THEN** the system rejects the duplicate request without submitting another provider job
+
+#### Scenario: Recreate after terminal state
+
+- **WHEN** the teacher requests Recreate after the previous provider job reached a terminal state
+- **THEN** the system submits a new job with a new idempotency key
+
+#### Scenario: New content changes the key
+
+- **WHEN** the lesson content version changes
+- **THEN** the next submission uses an idempotency key for the new story version
+
+### Requirement: Provider outage isolation
+
+A video-provider outage, rate limit, or transport error SHALL affect only the requested variant. The system SHALL record an actionable reason and SHALL NOT change lesson status or remove previously available media.
+
+#### Scenario: Provider unavailable
+
+- **WHEN** the provider cannot be reached
+- **THEN** the requested variant is `FAILED` with a provider-unavailable reason and the lesson remains `READY`
+
+#### Scenario: Provider rate limit
+
+- **WHEN** the provider rejects a submission because of a rate limit
+- **THEN** the variant records the rate-limit reason and can be retried later
+
+#### Scenario: Previous video preserved
+
+- **WHEN** a recreate submission fails after an earlier variant was `READY`
+- **THEN** the earlier video remains available until a new render is successfully ingested

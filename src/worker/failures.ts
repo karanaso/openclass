@@ -1,6 +1,23 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/server/db";
 
+export async function markStoryFailure(
+  data: { lessonId: string },
+  error: unknown,
+  db: PrismaClient = defaultPrisma,
+): Promise<void> {
+  const message = (error instanceof Error ? error.message : "Pipeline job failed").slice(0, 1_000);
+  await db.lessonStory
+    .updateMany({ where: { lessonId: data.lessonId }, data: { status: "FAILED", error: message } })
+    .catch(() => undefined);
+  await db.generationJob
+    .updateMany({
+      where: { lessonId: data.lessonId, stage: "STORY" },
+      data: { status: "FAILED", error: message, finishedAt: new Date() },
+    })
+    .catch(() => undefined);
+}
+
 export async function markMediaFailure(
   data: { lessonId: string; locale?: string },
   error: unknown,
