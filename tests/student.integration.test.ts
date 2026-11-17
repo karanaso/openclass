@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
-import { resetStorage } from "@/server/storage";
+import { getStorage, resetStorage } from "@/server/storage";
 
 let infra: TestInfra;
 let prisma: PrismaClient;
@@ -63,7 +63,7 @@ async function createLessonFixture(options: { includeEnglish?: boolean } = {}) {
       classId: classroom.id,
       title: "Photosynthesis",
       originalFilename: "photosynthesis.pdf",
-      storageKey: "lessons/test/original.pdf",
+      storageKey: `lessons/test/${Math.random()}.pdf`,
       checksum: `student-${Math.random()}`,
       sizeBytes: 100,
       pageCount: 2,
@@ -130,6 +130,39 @@ async function createLessonFixture(options: { includeEnglish?: boolean } = {}) {
 
   return { classroom, lesson };
 }
+
+describe("lesson source document", () => {
+  it("exposes a share-scoped source URL when the PDF exists", async () => {
+    const { lesson } = await createLessonFixture();
+    await getStorage().put(lesson.storageKey, new Uint8Array([37, 80, 68, 70]));
+
+    const data = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "el",
+      token: "raw-token",
+      normalizedStudentName: "maria",
+    });
+
+    expect(data?.sourceDocument).toEqual({
+      url: `/api/s/raw-token/lessons/${lesson.id}/source`,
+      filename: "photosynthesis.pdf",
+    });
+    expect(data?.sourceDocument?.url).not.toContain(lesson.storageKey);
+    expect(JSON.stringify(data)).not.toContain(lesson.storageKey);
+  });
+
+  it("returns null when the stored PDF is missing", async () => {
+    const { lesson } = await createLessonFixture();
+    const data = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "el",
+      token: "raw-token",
+      normalizedStudentName: "maria",
+    });
+
+    expect(data?.sourceDocument).toBeNull();
+  });
+});
 
 describe("share links", () => {
   it("creates hashed tokens that resolve by raw token", async () => {

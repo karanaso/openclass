@@ -96,6 +96,14 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   const token = lessonUrl.split("/s/")[1].split("/")[0];
   const lessonId = lessonUrl.split("/lesson/")[1];
 
+  // The source PDF is the first tab and opens by default.
+  const sourceUrl = `/api/s/${token}/lessons/${lessonId}/source`;
+  await expect(page.getByRole("tab").first()).toHaveAttribute("data-testid", "tab-pdf");
+  await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("pdf-frame")).toHaveAttribute("src", sourceUrl);
+  await expect(page.getByTestId("pdf-fullscreen")).toBeVisible();
+  await expect(page.getByTestId("pdf-open")).toHaveAttribute("href", sourceUrl);
+
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl() } } });
   try {
     for (const [label, percentage] of [
@@ -124,6 +132,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   // Cards
   await page.getByTestId("tab-cards").click();
+  await expect(page).toHaveURL(/[?&]tab=cards/);
   await expect(page.getByTestId("card-deck")).toBeVisible();
   const firstCard = await page.getByTestId("card-text").textContent();
   await page.getByTestId("card-face").click();
@@ -218,6 +227,14 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(page.getByTestId("video-player")).toBeVisible();
   await page.reload();
   await expect(page.getByTestId("video-player")).toBeVisible();
+
+  // Locale switching keeps the PDF tab and the same source document.
+  await page.getByTestId("tab-pdf").click();
+  await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
+  await page.locator("select").first().selectOption("el");
+  await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);
+  await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("pdf-frame")).toHaveAttribute("src", sourceUrl);
 
   // Mobile layout
   for (const viewport of [

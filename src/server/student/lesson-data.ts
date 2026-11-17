@@ -1,5 +1,6 @@
 import type { Prisma, QuestionType } from "@prisma/client";
 import { prisma } from "@/server/db";
+import { getStorage } from "@/server/storage";
 import type { Locale } from "@/lib/locale";
 import { getLessonQuestionnaireSummary, type ClassSummary } from "./class-summary";
 
@@ -155,6 +156,18 @@ export async function loadLessonForStudent(input: {
       : null,
   }));
 
+  const sourceAvailable = lesson.storageKey
+    ? await getStorage()
+        .exists(lesson.storageKey)
+        .catch(() => false)
+    : false;
+  const sourceDocument = sourceAvailable
+    ? {
+        url: `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/source`,
+        filename: lesson.originalFilename,
+      }
+    : null;
+
   const existingAttempt = lesson.attempts[0];
   let existingResult: QuestionnaireResult | null = null;
   if (existingAttempt) {
@@ -200,6 +213,7 @@ export async function loadLessonForStudent(input: {
     questionnaire,
     game,
     videos,
+    sourceDocument,
     existingResult,
     draftAnswers: (lesson.drafts[0]?.answers as Record<string, string> | undefined) ?? {},
     deckViewed: lesson.deckViews.length > 0,

@@ -13,6 +13,7 @@ export type ServeMediaOptions = {
   contentType: string;
   cacheControl?: string;
   allowRange?: boolean;
+  headers?: Record<string, string>;
 };
 
 export async function serveStoredMedia(
@@ -28,6 +29,7 @@ export async function serveStoredMedia(
   }
 
   const headers: Record<string, string> = {
+    ...options.headers,
     "content-type": options.contentType,
     "accept-ranges": "bytes",
     "cache-control": options.cacheControl ?? "private, max-age=0, must-revalidate",

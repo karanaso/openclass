@@ -16,13 +16,13 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           {
             key: "Content-Security-Policy",
             value:
-              `default-src 'self'; img-src 'self' data:; media-src 'self' blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ${connectSrc}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+              `default-src 'self'; img-src 'self' data:; media-src 'self' blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ${connectSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self'`,
           },
         ],
       },

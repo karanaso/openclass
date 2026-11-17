@@ -26,6 +26,7 @@ let eventsRoute: typeof import("@/app/api/admin/lessons/[lessonId]/events/route"
 let videoRoute: typeof import("@/app/api/admin/lessons/[lessonId]/video/route");
 let adminMediaRoute: typeof import("@/app/api/admin/lessons/[lessonId]/media/[locale]/[kind]/route");
 let mediaRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
+let sourceRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/source/route");
 let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
 let loginRoute: typeof import("@/app/api/auth/login/route");
 
@@ -62,6 +63,7 @@ beforeAll(async () => {
   videoRoute = await import("@/app/api/admin/lessons/[lessonId]/video/route");
   adminMediaRoute = await import("@/app/api/admin/lessons/[lessonId]/media/[locale]/[kind]/route");
   mediaRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/media/[locale]/[kind]/route");
+  sourceRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/source/route");
   sessionRoute = await import("@/app/api/s/[token]/session/route");
   loginRoute = await import("@/app/api/auth/login/route");
   cookie = await teacherAuth.createSessionToken();
@@ -375,6 +377,65 @@ describe("security smoke", () => {
       .getLessonQueue()
       .getJobs(["waiting", "delayed", "paused", "prioritized", "active"]);
     expect(jobs.filter((job) => job?.data.lessonId === lesson.id)).toHaveLength(0);
+  });
+
+  it("serves the original lesson PDF only through the scoped student route", async () => {
+    const lesson = await createLesson("Source-document");
+    const other = await createLesson("Other-document");
+    const bytes = Buffer.from("%PDF-1.4\nsource material\n");
+    await getStorage().put(lesson.storageKey, new Uint8Array(bytes));
+    await prisma.lesson.update({
+      where: { id: lesson.id },
+      data: { originalFilename: `Μάθημα "1".pdf` },
+    });
+
+    const share = await shareService.createShareLink({ lessonId: lesson.id });
+    const sessionCookie = await studentSession(share.token);
+    const params = (lessonId = lesson.id) => ({ params: Promise.resolve({ token: share.token, lessonId }) });
+    const request = (lessonId = lesson.id, headers: Record<string, string> = {}) =>
+      new Request(`http://localhost:3000/api/s/${share.token}/lessons/${lessonId}/source`, { headers });
+
+    const anonymous = await sourceRoute.GET(request(), params());
+    expect(anonymous.status).toBe(401);
+
+    const forbidden = await sourceRoute.GET(request(other.id, { cookie: sessionCookie }), params(other.id));
+    expect(forbidden.status).toBe(403);
+
+    const unknownLesson = await sourceRoute.GET(
+      request("does-not-exist", { cookie: sessionCookie }),
+      params("does-not-exist"),
+    );
+    expect(unknownLesson.status).toBe(403);
+
+    const full = await sourceRoute.GET(request(lesson.id, { cookie: sessionCookie }), params());
+    expect(full.status).toBe(200);
+    expect(full.headers.get("content-type")).toBe("application/pdf");
+    expect(full.headers.get("content-length")).toBe(String(bytes.length));
+    const disposition = full.headers.get("content-disposition") ?? "";
+    expect(disposition).toContain("inline");
+    expect(disposition).toContain("filename*=UTF-8''");
+    expect(disposition).not.toContain("Μάθημα");
+    expect(JSON.stringify([...full.headers.entries()])).not.toContain(lesson.storageKey);
+    expect(new Uint8Array(await full.arrayBuffer())).toEqual(new Uint8Array(bytes));
+
+    const ranged = await sourceRoute.GET(
+      request(lesson.id, { cookie: sessionCookie, range: "bytes=0-3" }),
+      params(),
+    );
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-range")).toBe(`bytes 0-3/${bytes.length}`);
+    expect(ranged.headers.get("content-disposition")).toContain("filename*=UTF-8''");
+    expect(new Uint8Array(await ranged.arrayBuffer())).toEqual(new Uint8Array(Buffer.from("%PDF")));
+
+    const missingFile = await createLesson("Missing-file");
+    const missingShare = await shareService.createShareLink({ lessonId: missingFile.id });
+    const missing = await sourceRoute.GET(
+      new Request(`http://localhost:3000/api/s/${missingShare.token}/lessons/${missingFile.id}/source`, {
+        headers: { cookie: await studentSession(missingShare.token) },
+      }),
+      { params: Promise.resolve({ token: missingShare.token, lessonId: missingFile.id }) },
+    );
+    expect(missing.status).toBe(404);
   });
 
   it("serves video range requests and reconnects SSE status streams", async () => {
