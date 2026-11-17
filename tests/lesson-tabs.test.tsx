@@ -54,7 +54,6 @@ function data(sourceDocument: StudentLessonData["sourceDocument"]): StudentLesso
     cards: [{ id: "card-1", prompt: "Question", answer: "Answer" }],
     questionnaire: [],
     game: [],
-    videos: [],
     sourceDocument,
     existingResult: null,
     draftAnswers: {},

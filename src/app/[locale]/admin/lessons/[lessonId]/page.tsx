@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Bot, FileText, ListChecks, Video } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, FileText, ListChecks } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import {
@@ -7,12 +7,10 @@ import {
   GeneratedContentEditorProvider,
   GeneratedContentEditors,
 } from "@/components/admin/generated-content-editor";
-import { ArtworkControls } from "@/components/admin/artwork-controls";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
 import { ShareLinkManager } from "@/components/admin/share-link-manager";
-import { VideoVariantControls } from "@/components/admin/video-variant-controls";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
@@ -46,7 +44,6 @@ export default async function LessonDetailPage({
 
   const tokens = lesson.jobs.reduce((sum, job) => sum + job.inputTokens + job.outputTokens, 0);
   const cost = lesson.jobs.reduce((sum, job) => sum + job.estimatedCostUsd, 0);
-  const visualJob = lesson.jobs.find((job) => job.stage === "VISUAL");
 
   return (
     <GeneratedContentEditorProvider
@@ -80,7 +77,7 @@ export default async function LessonDetailPage({
           </div>
         </div>
       </div>
-      {(lesson.status === "QUEUED" || lesson.status === "EXTRACTING" || lesson.status === "GENERATING" || lesson.status === "RENDERING") ? (
+      {(lesson.status === "QUEUED" || lesson.status === "EXTRACTING" || lesson.status === "GENERATING") ? (
         <Alert variant="info">{t("processingHint")}</Alert>
       ) : null}
 
@@ -145,91 +142,6 @@ export default async function LessonDetailPage({
             <p>
               {t("deckViews")}: <strong>{lesson._count.deckViews}</strong>
             </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Video className="h-4 w-4" aria-hidden />
-              {t("videoVariants")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {lesson.videos.length === 0 ? (
-              <p className="text-muted-foreground">{t("noVideos")}</p>
-            ) : (
-              lesson.videos.map((video) => (
-                <div key={video.id} className="flex items-center justify-between gap-2">
-                  <span>{video.locale.toUpperCase()}</span>
-                  <Badge
-                    variant={
-                      video.status === "READY"
-                        ? "success"
-                        : video.status === "FAILED"
-                          ? "destructive"
-                          : video.status === "SKIPPED"
-                            ? "secondary"
-                            : "warning"
-                    }
-                  >
-                    {t(`videoStatus.${video.status}`)}
-                  </Badge>
-                </div>
-              ))
-            )}
-            <VideoVariantControls
-              lessonId={lesson.id}
-              videos={lesson.videos.map((video) => ({
-                locale: video.locale,
-                status: video.status,
-                error: video.error,
-                progress: video.progress,
-                hasVideo: Boolean(video.storageKey),
-                hasCaptions: Boolean(video.captionsKey),
-                hasPoster: Boolean(video.posterKey),
-              }))}
-            />
-            <div className="flex items-center justify-between gap-2 border-t pt-2">
-              <span>{t("characterStatus")}</span>
-              <Badge
-                variant={
-                  lesson.visual?.status === "READY"
-                    ? "success"
-                    : lesson.visual?.status === "FAILED"
-                      ? "destructive"
-                      : lesson.visual
-                        ? "warning"
-                        : "secondary"
-                }
-              >
-                {lesson.visual?.status === "READY"
-                  ? t("characterReady")
-                  : lesson.visual?.status === "FAILED"
-                    ? t("characterUnavailable")
-                    : lesson.visual
-                      ? t("characterGenerating")
-                      : t("characterNotGenerated")}
-              </Badge>
-            </div>
-            {lesson.visual?.status === "FAILED" && lesson.visual.error ? (
-              <p className="break-words text-xs text-muted-foreground" title={lesson.visual.error}>
-                {lesson.visual.error.slice(0, 180)}
-              </p>
-            ) : null}
-            <ArtworkControls
-              lessonId={lesson.id}
-              visual={
-                lesson.visual
-                  ? {
-                      status: lesson.visual.status,
-                      updatedAt: lesson.visual.updatedAt.toISOString(),
-                      lastError: lesson.visual.lastError,
-                    }
-                  : null
-              }
-              busy={lesson.visual?.status === "GENERATING" || visualJob?.status === "ACTIVE"}
-            />
           </CardContent>
         </Card>
       </div>

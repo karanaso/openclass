@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "worker": "node --env-file-if-exists=.env --import tsx src/worker/index.ts",
     "hash-password": "tsx src/scripts/hash-password.ts",
+    "cleanup-video-artifacts": "tsx src/scripts/cleanup-video-artifacts.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"

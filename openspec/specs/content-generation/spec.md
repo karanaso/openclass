@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Turns extracted lesson page text into validated, bilingual learning artifacts, including exactly one narration segment for every source page that is published for speech synthesis and video rendering.
+Turns extracted lesson page text into validated, bilingual questionnaire and game questions with exact option counts, safe retries, and predictable publication.
 
 ## Requirements
 

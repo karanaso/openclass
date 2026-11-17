@@ -1,6 +1,5 @@
-import type { GenerationInput, ContentProvider, ProviderResult, StoryGenerationInput } from "./provider";
-import type { RawCard, RawNarration, RawQuestion } from "./schemas";
-import type { RawStory } from "@/server/story/schemas";
+import type { GenerationInput, ContentProvider, ProviderResult } from "./provider";
+import type { RawCard, RawQuestion } from "./schemas";
 
 type Sentence = { pageNumber: number; text: string };
 
@@ -132,65 +131,4 @@ export class MockContentProvider implements ContentProvider {
     });
     return { items: questions, usage: usage(input, questions) };
   }
-
-  async narration(input: GenerationInput): Promise<ProviderResult<RawNarration[]>> {
-    const segments: RawNarration[] = input.pages.map((page) => {
-      const text = page.text.split(/(?<=[.!?])\s+/).slice(0, 4).join(" ").slice(0, 900) || page.text.slice(0, 900);
-      return {
-        pageNumber: page.pageNumber,
-        script: { el: text, en: text },
-      };
-    });
-    return { items: segments, usage: usage(input, segments) };
-  }
-
-  async story(input: StoryGenerationInput): Promise<ProviderResult<RawStory>> {
-    if (input.mode === "repair" && input.existing) {
-      return { items: input.existing, usage: storyUsage(input, input.existing) };
-    }
-    if (input.mode === "merge" && input.beats?.length) {
-      const story: RawStory = {
-        title: input.title?.trim() || "A lesson story",
-        logline: "A clear journey through the lesson's key ideas.",
-        scenes: input.beats.map((beat, index) => ({
-          sceneKey: beat.sceneKey || `scene-${index + 1}`,
-          sourcePages: beat.sourcePages,
-          narration: beat.narration,
-          visualDirection: beat.visualDirection,
-        })),
-      };
-      return { items: story, usage: storyUsage(input, story) };
-    }
-
-    const pages = input.pages.length > 0 ? input.pages : [{ pageNumber: 1, text: "Lesson content" }];
-    const sceneCount = Math.max(3, Math.min(6, pages.length + 1));
-    const scenes = Array.from({ length: sceneCount }, (_, index) => {
-      const page = pages[index % pages.length];
-      const text = page.text.split(/(?<=[.!?])\s+/).slice(0, 3).join(" ").slice(0, 700) || page.text.slice(0, 700);
-      return {
-        sceneKey: `scene-${index + 1}`,
-        sourcePages: [page.pageNumber],
-        narration: {
-          el: index === 0 ? `Ας ξεκινήσουμε. ${text}` : text,
-          en: index === 0 ? `Let's begin. ${text}` : text,
-        },
-        visualDirection: "Friendly illustrated lesson scene.",
-      };
-    });
-    const story: RawStory = {
-      title: input.title?.trim() || "A lesson story",
-      logline: "A friendly journey through the lesson's most important ideas.",
-      scenes,
-    };
-    return { items: story, usage: storyUsage(input, story) };
-  }
-}
-
-function storyUsage(input: StoryGenerationInput, output: RawStory) {
-  const inputChars = input.pages.reduce((sum, page) => sum + page.text.length, 0);
-  return {
-    model: "mock-story-v1",
-    inputTokens: Math.ceil(inputChars / 4),
-    outputTokens: Math.ceil(JSON.stringify(output).length / 4),
-  };
 }

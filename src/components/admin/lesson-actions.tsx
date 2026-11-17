@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 
-const processing = new Set(["QUEUED", "EXTRACTING", "GENERATING", "RENDERING"]);
+const processing = new Set(["QUEUED", "EXTRACTING", "GENERATING"]);
 
 export function LessonActions({ lessonId, status }: { lessonId: string; status: string }) {
   const t = useTranslations("admin");

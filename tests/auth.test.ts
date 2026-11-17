@@ -12,7 +12,6 @@ const baseEnv = {
   AUTH_SECRET: "a".repeat(40),
   TEACHER_PASSWORD: "correct-horse",
   AI_PROVIDER: "mock",
-  TTS_PROVIDER: "mock",
   LOGIN_MAX_FAILURES: "3",
   LOGIN_WINDOW_SECONDS: "60",
 };

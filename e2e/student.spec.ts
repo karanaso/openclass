@@ -50,34 +50,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   await page.getByRole("link", { name: "Άνοιγμα μαθήματος" }).first().click();
   await expect(page).toHaveURL(/\/el\/admin\/lessons\//);
-  const adminLessonId = page.url().split("/").pop()!;
 
-  // Video is manual: content is ready but no variant exists until the teacher asks.
-  await expect(page.locator('[data-testid^="video-play-"]')).toHaveCount(0);
-  const generateVariant = page.locator('[data-testid^="video-variant-"]').first();
-  await expect(generateVariant).toBeVisible();
-  const readyLocale = (await generateVariant.getAttribute("data-testid"))!.replace("video-variant-", "");
-  const queueResponse = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/api/admin/lessons/${adminLessonId}/video`) &&
-      response.request().method() === "POST",
-  );
-  await generateVariant.click();
-  expect((await queueResponse).status()).toBe(202);
-
-  await expect
-    .poll(
-      async () => {
-        await page.reload();
-        return page.getByTestId(`video-play-${readyLocale}`).count();
-      },
-      { timeout: 150_000, intervals: [1_000, 2_000, 3_000] },
-    )
-    .toBeGreaterThan(0);
-  const playVariant = page.getByTestId(`video-play-${readyLocale}`);
-  await expect(playVariant).toBeVisible();
-  await playVariant.click();
-  await expect(page.getByTestId(`video-preview-${readyLocale}`)).toBeVisible();
   await page.getByTestId("create-share-link").click();
   const shareUrl = await page.getByTestId("share-url").inputValue();
   expect(shareUrl).toContain("/el/s/");
@@ -231,18 +204,13 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(classSummary).not.toContainText("Classmate A");
   await expect(classSummary).not.toContainText("Classmate B");
 
-  // Video
-  await page.getByTestId("tab-video").click();
-  await expect(page.getByTestId("video-player")).toBeVisible();
-
   // Locale switch keeps the lesson and tab
   await page.locator("select").first().selectOption("en");
   await expect(page).toHaveURL(/\/en\/s\/.+\/lesson\//);
   await expect(page.getByTestId("tab-cards")).toContainText("Cards");
   await expect(page.getByTestId("tab-quiz")).toContainText("Quiz");
-  await expect(page.getByTestId("video-player")).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId("video-player")).toBeVisible();
+  await expect(page.getByTestId("tab-cards")).toContainText("Cards");
 
   // Locale switching keeps the PDF tab and the same source document.
   await page.getByTestId("tab-pdf").click();

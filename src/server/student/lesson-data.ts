@@ -26,16 +26,6 @@ export type QuestionnaireResult = {
   feedback: StudentFeedback[];
   classSummary: ClassSummary | null;
 };
-export type StudentVideo = {
-  locale: string;
-  status: string;
-  progress: number | null;
-  error: string | null;
-  videoUrl: string | null;
-  captionsUrl: string | null;
-  posterUrl: string | null;
-};
-
 export function pickTranslation<T extends { locale: string }>(
   translations: T[],
   locale: string,
@@ -81,7 +71,6 @@ export async function loadLessonForStudent(input: {
       class: true,
       cards: { orderBy: { position: "asc" }, include: { translations: true } },
       questions: { orderBy: { position: "asc" }, include: questionInclude },
-      videos: true,
       attempts: {
         where: {
           normalizedStudentName: input.normalizedStudentName,
@@ -140,22 +129,6 @@ export async function loadLessonForStudent(input: {
     }
   }
 
-  const videos: StudentVideo[] = lesson.videos.map((video) => ({
-    locale: video.locale,
-    status: video.status,
-    progress: video.progress,
-    error: video.error,
-    videoUrl: video.storageKey
-      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/video`
-      : null,
-    captionsUrl: video.captionsKey
-      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/captions`
-      : null,
-    posterUrl: video.posterKey
-      ? `/api/s/${encodeURIComponent(input.token)}/lessons/${lesson.id}/media/${video.locale}/poster`
-      : null,
-  }));
-
   const sourceAvailable = lesson.storageKey
     ? await getStorage()
         .exists(lesson.storageKey)
@@ -212,7 +185,6 @@ export async function loadLessonForStudent(input: {
     cards,
     questionnaire,
     game,
-    videos,
     sourceDocument,
     existingResult,
     draftAnswers: (lesson.drafts[0]?.answers as Record<string, string> | undefined) ?? {},

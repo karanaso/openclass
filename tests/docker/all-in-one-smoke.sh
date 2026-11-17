@@ -53,7 +53,6 @@ printf '[smoke] checking missing-secret failure\n'
 set +e
 output="$(docker run --rm \
   -e AI_PROVIDER=mock \
-  -e TTS_PROVIDER=mock \
   -e TEACHER_PASSWORD="$TEACHER_PASSWORD" \
   -v "$VOLUME:/data" \
   "$IMAGE" 2>&1)"
@@ -71,7 +70,6 @@ docker run -d --name "$NAME" \
   -e AUTH_SECRET="$AUTH_SECRET" \
   -e TEACHER_PASSWORD="$TEACHER_PASSWORD" \
   -e AI_PROVIDER=mock \
-  -e TTS_PROVIDER=mock \
   -e APP_BASE_URL="http://localhost:${PORT}" \
   -v "$VOLUME:/data" \
   "$IMAGE" >/dev/null

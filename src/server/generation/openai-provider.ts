@@ -2,16 +2,12 @@ import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
-import { buildStoryPrompt } from "@/server/story/prompts";
-import { rawStorySchema, type RawStory } from "@/server/story/schemas";
 import { buildPrompt } from "./prompts";
-import type { ContentProvider, GenerationInput, ProviderResult, StoryGenerationInput } from "./provider";
+import type { ContentProvider, GenerationInput, ProviderResult } from "./provider";
 import {
   cardsArtifactSchema,
-  narrationArtifactSchema,
   questionsArtifactSchema,
   type RawCard,
-  type RawNarration,
   type RawQuestion,
 } from "./schemas";
 
@@ -126,28 +122,6 @@ export class OpenAIContentProvider implements ContentProvider {
     );
     return {
       items: result.parsed.questions,
-      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
-    };
-  }
-
-  async narration(input: GenerationInput): Promise<ProviderResult<RawNarration[]>> {
-    const result = await this.call("lesson_narration", narrationArtifactSchema, buildPrompt(input));
-    return {
-      items: result.parsed.segments,
-      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
-    };
-  }
-
-  async story(input: StoryGenerationInput): Promise<ProviderResult<RawStory>> {
-    const env = getEnv();
-    const result = await this.call(
-      "lesson_story",
-      rawStorySchema,
-      buildStoryPrompt(input),
-      env.STORY_MODEL ?? env.OPENAI_TEXT_MODEL,
-    );
-    return {
-      items: result.parsed,
       usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
     };
   }

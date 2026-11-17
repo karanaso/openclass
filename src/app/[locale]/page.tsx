@@ -1,4 +1,4 @@
-import { BookOpen, Film, Gamepad2, ListChecks } from "lucide-react";
+import { BookOpen, Gamepad2, ListChecks } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ export default async function HomePage() {
 
   const features = [
     { title: t("featureCardsTitle"), body: t("featureCards"), icon: BookOpen, color: "bg-blue-100 text-blue-700" },
-    { title: t("featureVideoTitle"), body: t("featureVideo"), icon: Film, color: "bg-violet-100 text-violet-700" },
     { title: t("featureGameTitle"), body: t("featureGame"), icon: Gamepad2, color: "bg-amber-100 text-amber-700" },
     { title: t("featureQuizTitle"), body: t("featureQuiz"), icon: ListChecks, color: "bg-emerald-100 text-emerald-700" },
   ];
@@ -32,7 +31,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <Card key={feature.title}>
               <CardHeader>

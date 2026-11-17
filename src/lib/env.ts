@@ -11,33 +11,11 @@ const envSchema = z
     TEACHER_PASSWORD_HASH: z.string().min(1).optional(),
     OPENAI_API_KEY: z.string().min(1).optional(),
     AI_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
-    TTS_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
-    IMAGE_PROVIDER: z.enum(["openai", "mock", "disabled"]).optional(),
     OPENAI_TEXT_MODEL: z.string().default("gpt-4.1-mini"),
-    OPENAI_ART_DIRECTION_MODEL: z.string().optional(),
-    OPENAI_TTS_MODEL: z.string().default("gpt-4o-mini-tts"),
-    OPENAI_IMAGE_MODEL: z.string().default("gpt-image-1-mini"),
-    OPENAI_IMAGE_QUALITY: z.enum(["low", "medium", "high", "auto"]).default("high"),
-    OPENAI_TTS_VOICE_EL: z.string().default("alloy"),
-    OPENAI_TTS_VOICE_EN: z.string().default("alloy"),
-    VIDEO_PROVIDER: z.enum(["api", "mock", "disabled"]).default("disabled"),
-    VIDEO_AI_BASE_URL: z.string().url().optional(),
-    VIDEO_AI_API_KEY: z.string().min(1).optional(),
-    VIDEO_AI_MODEL: z.string().min(1).optional(),
-    VIDEO_AI_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
-    VIDEO_AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
-    VIDEO_AI_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(1_800),
-    VIDEO_MAX_OUTPUT_BYTES: z.coerce.number().int().positive().default(512 * 1024 * 1024),
-    STORY_MODEL: z.string().min(1).optional(),
-    STORY_MIN_SCENES: z.coerce.number().int().positive().default(3),
-    STORY_MAX_SCENES: z.coerce.number().int().positive().default(20),
-    STORY_CHUNK_CHARS: z.coerce.number().int().positive().default(48_000),
     STORAGE_ROOT: z.string().default("./data"),
     DEFAULT_LOCALE: z.enum(["el", "en"]).default("el"),
     MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
     MAX_PDF_PAGES: z.coerce.number().int().positive().default(80),
-    MAX_VIDEO_SECONDS: z.coerce.number().int().positive().default(900),
-    VIDEO_RENDER_TIMEOUT_MS: z.coerce.number().int().positive().default(600_000),
     LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(8),
     LOGIN_WINDOW_SECONDS: z.coerce.number().int().positive().default(900),
     GENERATION_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
@@ -64,21 +42,6 @@ const envSchema = z
         message: "OPENAI_API_KEY is required when AI_PROVIDER=openai",
       });
     }
-    if (value.TTS_PROVIDER === "openai" && !value.OPENAI_API_KEY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["OPENAI_API_KEY"],
-        message: "OPENAI_API_KEY is required when TTS_PROVIDER=openai",
-      });
-    }
-    const imageProvider = value.IMAGE_PROVIDER ?? value.AI_PROVIDER;
-    if (imageProvider === "openai" && !value.OPENAI_API_KEY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["OPENAI_API_KEY"],
-        message: "OPENAI_API_KEY is required when IMAGE_PROVIDER=openai",
-      });
-    }
     if (value.CARD_MIN > value.CARD_MAX) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["CARD_MIN"], message: "CARD_MIN must be <= CARD_MAX" });
     }
@@ -92,31 +55,9 @@ const envSchema = z
     if (value.GAME_MIN > value.GAME_MAX) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["GAME_MIN"], message: "GAME_MIN must be <= GAME_MAX" });
     }
-    if (value.VIDEO_PROVIDER === "api" && !value.VIDEO_AI_BASE_URL) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["VIDEO_AI_BASE_URL"],
-        message: "VIDEO_AI_BASE_URL is required when VIDEO_PROVIDER=api",
-      });
-    }
-    if (value.STORY_MIN_SCENES > value.STORY_MAX_SCENES) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["STORY_MIN_SCENES"],
-        message: "STORY_MIN_SCENES must be <= STORY_MAX_SCENES",
-      });
-    }
   });
 
 export type Env = z.infer<typeof envSchema>;
-
-export type ImageProviderMode = "openai" | "mock" | "disabled";
-
-export function effectiveImageProvider(
-  env: Pick<Env, "IMAGE_PROVIDER" | "AI_PROVIDER">,
-): ImageProviderMode {
-  return env.IMAGE_PROVIDER ?? env.AI_PROVIDER;
-}
 
 let cached: Env | null = null;
 

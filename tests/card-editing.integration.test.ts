@@ -226,7 +226,7 @@ describe("card editing service", () => {
     expect(await translationsFor(cards[0].id)).toEqual(before);
   });
 
-  it("leaves questions, narration, videos, and card order unchanged", async () => {
+  it("leaves questions, game content, and card order unchanged", async () => {
     const { lesson, cards } = await createLessonWithDeck();
     await prisma.question.create({
       data: {
@@ -261,27 +261,12 @@ describe("card editing service", () => {
         },
       },
     });
-    await prisma.narrationSegment.createMany({
-      data: [
-        { lessonId: lesson.id, pageNumber: 1, locale: "el", script: "Ελληνική αφήγηση" },
-        { lessonId: lesson.id, pageNumber: 1, locale: "en", script: "English narration" },
-      ],
-    });
-    await prisma.videoAsset.create({
-      data: { lessonId: lesson.id, locale: "el", status: "READY", storageKey: "lessons/test/video.mp4" },
-    });
-
     const snapshot = async () => ({
       questions: await prisma.question.findMany({
         where: { lessonId: lesson.id },
         orderBy: { id: "asc" },
         include: { translations: { orderBy: { locale: "asc" } } },
       }),
-      narration: await prisma.narrationSegment.findMany({
-        where: { lessonId: lesson.id },
-        orderBy: [{ pageNumber: "asc" }, { locale: "asc" }],
-      }),
-      videos: await prisma.videoAsset.findMany({ where: { lessonId: lesson.id }, orderBy: { locale: "asc" } }),
       cardOrder: await prisma.card.findMany({
         where: { lessonId: lesson.id },
         orderBy: { position: "asc" },

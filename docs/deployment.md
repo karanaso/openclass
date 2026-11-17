@@ -19,7 +19,6 @@ AUTH_SECRET=$(openssl rand -base64 48)
 TEACHER_PASSWORD=...            # or TEACHER_PASSWORD_HASH
 OPENAI_API_KEY=sk-...
 AI_PROVIDER=openai
-TTS_PROVIDER=openai
 APP_BASE_URL=https://lessons.example.com
 ```
 
@@ -37,7 +36,7 @@ curl -fsS http://localhost:3100/api/health
 Services:
 
 - `web` — Next.js on host port `3100` (container `3000`), runs `prisma migrate deploy` in the entrypoint.
-- `worker` — BullMQ processor for extraction, generation, TTS, and video.
+- `worker` — BullMQ processor for PDF extraction and content generation.
 - `postgres` — PostgreSQL 16 with the `pgdata` volume.
 - `redis` — Redis 7 with the `redisdata` volume.
 - `media` — shared volume mounted at `/data` in web and worker.
@@ -72,9 +71,8 @@ Migrations are forward-only. Take a backup before upgrading. Roll back by restor
 
 ## Resource notes
 
-- ffmpeg is the CPU peak; render concurrency is one by default.
-- Media grows with video variants. Monitor `/data` and set `MAX_VIDEO_SECONDS`.
-- OpenAI spend is driven by text generation and TTS. Use the usage summary and `GENERATION_MAX_ATTEMPTS` to control retries.
+- Uploads are the main storage cost. Monitor `/data` and set `MAX_UPLOAD_BYTES`.
+- OpenAI spend is driven by text generation. Use the usage summary and `GENERATION_MAX_ATTEMPTS` to control retries.
 
 ## Single-container mode
 
@@ -98,7 +96,7 @@ curl -fsS http://localhost:3000/api/health
 docker logs -f lessonlab
 ```
 
-For a keyless local run, add `-e AI_PROVIDER=mock -e TTS_PROVIDER=mock`.
+For a keyless local run, add `-e AI_PROVIDER=mock`.
 
 The container validates its environment before starting anything. A missing `AUTH_SECRET`, teacher credential, or required OpenAI key exits non-zero with the failing variable in the log. The first start initializes PostgreSQL under `/data/postgres`, starts Redis with append-only persistence, applies Prisma migrations, and only then starts the web server and worker. The `HEALTHCHECK` reports healthy when `/api/health` returns `ok`; expect up to 60 seconds on the first start.
 
@@ -108,8 +106,8 @@ The container validates its environment before starting anything. A missing `AUT
 | --- | --- | --- |
 | `AUTH_SECRET` | required | At least 32 characters; rotate to invalidate sessions. |
 | `TEACHER_PASSWORD` / `TEACHER_PASSWORD_HASH` | required | One of the two; prefer the Argon2id hash in shared environments. |
-| `OPENAI_API_KEY` | required for `openai` providers | Not needed when both providers are `mock`. |
-| `AI_PROVIDER`, `TTS_PROVIDER` | `openai` | Set both to `mock` to run without external AI calls. |
+| `OPENAI_API_KEY` | required for `AI_PROVIDER=openai` | Not needed when `AI_PROVIDER=mock`. |
+| `AI_PROVIDER` | `openai` | Set to `mock` to run without external AI calls. |
 | `APP_BASE_URL` | `http://localhost:3000` | Public origin used in share links and cookies. |
 | `POSTGRES_USER` | `lessonlab` | Embedded database role; used only when the cluster is first initialized. |
 | `POSTGRES_PASSWORD` | `lessonlab` | Embedded database password; used only when the cluster is first initialized. |
@@ -118,7 +116,7 @@ The container validates its environment before starting anything. A missing `AUT
 | `REDIS_PORT` | `6379` | Loopback port for the embedded Redis. |
 | `DATABASE_URL` | loopback URL built from `POSTGRES_*` | Set to use an external database instead. |
 | `REDIS_URL` | `redis://127.0.0.1:6379` | Set to use an external Redis instead. |
-| `STORAGE_ROOT` | `/data/media` | Uploaded files and rendered media. |
+| `STORAGE_ROOT` | `/data/media` | Uploaded lesson PDFs. |
 
 Changing `POSTGRES_USER`, `POSTGRES_PASSWORD`, or `POSTGRES_DB` after the first start does not rewrite the existing cluster. Keep the values stable, or remove the volume to start over. All application settings from `.env.example` still apply through `-e` flags or an env file; `.env` is not read from the image automatically.
 
@@ -131,7 +129,7 @@ Mount one volume at `/data`:
 | `/data/postgres` | PostgreSQL data directory |
 | `/data/postgres-run` | PostgreSQL socket directory |
 | `/data/redis` | Redis append-only file |
-| `/data/media` | Uploads and generated media (`STORAGE_ROOT`) |
+| `/data/media` | Uploaded lesson PDFs (`STORAGE_ROOT`) |
 
 Use a named volume (`-v lessonlab-data:/data`) or a bind mount owned by UID 1001. Deleting the volume destroys all state; the next start behaves like a fresh install.
 
@@ -181,7 +179,7 @@ The container exits non-zero if the web server, worker, PostgreSQL, or Redis sto
 
 - Not horizontally scalable: one container owns one database and one worker.
 - No replication, point-in-time recovery, or external database operations.
-- PostgreSQL and Redis share the container's CPU and memory with video rendering.
+- PostgreSQL, Redis, and the web app share the container's CPU and memory.
 - Backups and upgrades require stopping the container; there is no hot-backup tooling.
 - `linux/amd64` only.
 - Secrets arrive through environment variables, so they are visible to users who can inspect the container.

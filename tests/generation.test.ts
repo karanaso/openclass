@@ -5,7 +5,6 @@ import { detectContentLocale } from "@/lib/locale";
 import { extractPdfPages } from "@/server/pdf/extract";
 import { MockContentProvider } from "@/server/generation/mock-provider";
 import { buildPrompt, chunkPages } from "@/server/generation/prompts";
-import { normalizeNarration } from "@/server/generation/narration";
 import { cardsArtifactSchema, questionsArtifactSchema, type ContentCounts, type PromptPage } from "@/server/generation/schemas";
 import { validateGeneratedArtifacts } from "@/server/generation/validate";
 
@@ -150,14 +149,6 @@ describe("prompt building", () => {
     expect(prompt.promptVersion).toBe("v2");
   });
 
-  it("lists exact narration pages and requires one segment per page", () => {
-    const prompt = buildPrompt({ kind: "narration", pages, counts, sourceLocale: "en" });
-    expect(prompt.user).toContain("pages: 1, 2");
-    expect(prompt.user).toContain("exactly one narration segment");
-    expect(prompt.user).toContain("no repeated page numbers");
-    expect(prompt.promptVersion).toBe("v2");
-  });
-
   it("requires exact option counts for game questions", () => {
     const prompt = buildPrompt({ kind: "game", pages, counts, sourceLocale: "en" });
     expect(prompt.user).toContain('TRUE_FALSE has exactly two options with ids "a" and "b"');
@@ -172,7 +163,6 @@ describe("artifact validation", () => {
     const artifacts = validateGeneratedArtifacts(raw, pages, counts);
     expect(artifacts.cards.length).toBeGreaterThanOrEqual(2);
     expect(artifacts.questionnaire.length).toBeGreaterThanOrEqual(3);
-    expect(artifacts).not.toHaveProperty("narration");
     expect(artifacts.questionnaire[0].options.el.map((option) => option.id)).toEqual(
       artifacts.questionnaire[0].options.en.map((option) => option.id),
     );
@@ -226,7 +216,7 @@ describe("artifact validation", () => {
     expect(() => validateGeneratedArtifacts({ ...raw, cards: raw.cards.slice(0, 1) }, pages, counts)).toThrow(/cards must contain/);
   });
 
-  it("rejects wrong question option counts without requiring narration", async () => {
+  it("rejects wrong question option counts", async () => {
     const raw = await makeRaw();
 
     const multipleChoice = raw.game.find((question) => question.type === "MULTIPLE_CHOICE")!;
@@ -260,68 +250,6 @@ describe("artifact validation", () => {
     expect(() => validateGeneratedArtifacts({ ...raw, game: threeOptionTrueFalse }, pages, counts)).toThrow(
       /must have exactly two options/,
     );
-  });
-});
-
-describe("narration normalization", () => {
-  it("keeps the longest duplicate and sorts pages ascending", () => {
-    const short = { pageNumber: 1, script: { el: "Σύντομο", en: "Short" } };
-    const long = {
-      pageNumber: 1,
-      script: { el: "Μεγαλύτερη αφήγηση για τη σελίδα ένα", en: "Longer narration for page one" },
-    };
-    const second = { pageNumber: 2, script: { el: "Σελίδα δύο", en: "Page two" } };
-
-    const result = normalizeNarration([second, short, long], pages);
-
-    expect(result.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
-    expect(result.segments[0]).toBe(long);
-    expect(result.dropped).toEqual({ count: 1, pageNumbers: [1] });
-  });
-
-  it("keeps the first segment when duplicates tie", () => {
-    const first = { pageNumber: 1, script: { el: "aaaa", en: "bbbb" } };
-    const second = { pageNumber: 1, script: { el: "cccc", en: "dddd" } };
-
-    const result = normalizeNarration([first, second], [pages[0]]);
-
-    expect(result.segments).toHaveLength(1);
-    expect(result.segments[0]).toBe(first);
-    expect(result.dropped).toEqual({ count: 1, pageNumbers: [1] });
-  });
-
-  it("keeps one copy of identical duplicate segments", () => {
-    const segment = { pageNumber: 1, script: { el: "Ίδιο", en: "Same" } };
-
-    const result = normalizeNarration([segment, { ...segment, script: { ...segment.script } }], [pages[0]]);
-
-    expect(result.segments).toHaveLength(1);
-    expect(result.segments[0]).toEqual(segment);
-    expect(result.dropped).toEqual({ count: 1, pageNumbers: [1] });
-  });
-
-  it("drops segments for pages outside the request", () => {
-    const inScope = { pageNumber: 1, script: { el: "Σελίδα ένα", en: "Page one" } };
-    const outOfScope = { pageNumber: 99, script: { el: "Εκτός", en: "Outside" } };
-
-    const result = normalizeNarration([inScope, outOfScope], [pages[0]]);
-
-    expect(result.segments.map((segment) => segment.pageNumber)).toEqual([1]);
-    expect(result.dropped).toEqual({ count: 1, pageNumbers: [99] });
-  });
-
-  it("does not mutate provider segments", () => {
-    const segments = [
-      { pageNumber: 2, script: { el: "Δύο", en: "Two" } },
-      { pageNumber: 1, script: { el: "Ένα", en: "One" } },
-      { pageNumber: 1, script: { el: "Ένα ξανά", en: "One again" } },
-      { pageNumber: 99, script: { el: "Εκτός", en: "Outside" } },
-    ];
-    const snapshot = structuredClone(segments);
-
-    normalizeNarration(segments, pages);
-
-    expect(segments).toEqual(snapshot);
   });
 });
 

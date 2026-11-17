@@ -11,7 +11,6 @@ enum LessonStatus {
   QUEUED
   EXTRACTING
   GENERATING
-  RENDERING
   READY
   FAILED
   CANCELLED
@@ -20,20 +19,6 @@ enum LessonStatus {
 enum JobStage {
   EXTRACT
   GENERATE
-  NARRATION
-  STORY
-  TTS
-  VISUAL
-  VIDEO_SUBMIT
-  VIDEO_POLL
-  RENDER
-}
-
-enum StoryStatus {
-  PENDING
-  GENERATING
-  READY
-  FAILED
 }
 
 enum JobStatus {
@@ -51,21 +36,6 @@ enum QuestionMode {
 enum QuestionType {
   TRUE_FALSE
   MULTIPLE_CHOICE
-}
-
-enum VideoStatus {
-  PENDING
-  RENDERING
-  READY
-  FAILED
-  SKIPPED
-}
-
-enum VisualStatus {
-  PENDING
-  GENERATING
-  READY
-  FAILED
 }
 
 enum AttemptMode {
@@ -119,10 +89,6 @@ model Lesson {
   jobs       GenerationJob[]
   cards      Card[]
   questions  Question[]
-  narration  NarrationSegment[]
-  story      LessonStory?
-  videos     VideoAsset[]
-  visual     LessonVisual?
   shareLinks ShareLink[]
   attempts   Attempt[]
   drafts     AttemptDraft[]
@@ -138,7 +104,6 @@ model LessonPage {
   lessonId   String
   pageNumber Int
   text       String
-  imageKey   String?
 
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
@@ -226,110 +191,6 @@ model QuestionTranslation {
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, locale])
-}
-
-model NarrationSegment {
-  id         String  @id @default(cuid())
-  lessonId   String
-  pageNumber Int
-  locale     String
-  script     String
-  audioKey   String?
-  durationMs Int?
-
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  @@unique([lessonId, pageNumber, locale])
-}
-
-model LessonStory {
-  id            String      @id @default(cuid())
-  lessonId      String      @unique
-  jobVersion    Int         @default(0)
-  status        StoryStatus @default(PENDING)
-  title         String?
-  logline       String?
-  sourceLocale  String      @default("el")
-  model         String?
-  promptVersion String?
-  error         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  lesson Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  scenes StoryScene[]
-
-  @@index([status])
-}
-
-model StoryScene {
-  id              String  @id @default(cuid())
-  storyId         String
-  position        Int
-  sceneKey        String
-  sourcePages     Json
-  narrationEl     String
-  narrationEn     String
-  visualDirection String?
-
-  story LessonStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
-
-  @@unique([storyId, sceneKey])
-  @@index([storyId, position])
-}
-
-model VideoAsset {
-  id             String      @id @default(cuid())
-  lessonId       String
-  locale         String
-  status         VideoStatus @default(PENDING)
-  storageKey     String?
-  captionsKey    String?
-  posterKey      String?
-  durationMs     Int?
-  sizeBytes      Int?
-  provider       String?
-  providerJobId  String?
-  providerStatus String?
-  progress       Int?
-  contentVersion Int?
-  idempotencyKey String?     @unique
-  submittedAt    DateTime?
-  completedAt    DateTime?
-  error          String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  @@unique([lessonId, locale])
-  @@index([lessonId, status])
-  @@index([providerJobId])
-}
-
-model LessonVisual {
-  id                String       @id @default(cuid())
-  lessonId          String       @unique
-  status            VisualStatus @default(PENDING)
-  jobVersion        Int          @default(0)
-  sceneKey          String?
-  characterSheetKey String?
-  characterLoopKey  String?
-  generationId      String?
-  artBrief          String?
-  artBriefModel     String?
-  artBriefFallback  Boolean      @default(false)
-  model             String?
-  imageQuality      String?
-  promptVersion     String?
-  error             String?
-  lastError         String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-
-  @@index([status])
 }
 
 model ShareLink {

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, FileText, Film, Gamepad2, ListChecks, LogOut } from "lucide-react";
+import { BookOpen, FileText, Gamepad2, ListChecks, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
@@ -11,11 +11,10 @@ import { PdfViewer } from "@/components/student/pdf-viewer";
 import { MillionaireGame } from "@/components/student/millionaire-game";
 import { Questionnaire } from "@/components/student/questionnaire";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { StudentLessonData } from "@/server/student/lesson-data";
 
-type Tab = "pdf" | "cards" | "video" | "game" | "quiz";
+type Tab = "pdf" | "cards" | "game" | "quiz";
 
 export function LessonTabs({
   token,
@@ -27,7 +26,6 @@ export function LessonTabs({
   data: StudentLessonData;
 }) {
   const t = useTranslations("student");
-  const videoT = useTranslations("admin.videoStatus");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -36,11 +34,10 @@ export function LessonTabs({
   const available: Record<Tab, boolean> = {
     pdf: Boolean(data.sourceDocument),
     cards: data.cards.length > 0,
-    video: data.videos.length > 0,
     game: data.game.length > 0,
     quiz: data.questionnaire.length > 0,
   };
-  const tabOrder: Tab[] = ["pdf", "cards", "video", "game", "quiz"];
+  const tabOrder: Tab[] = ["pdf", "cards", "game", "quiz"];
   const firstAvailable = tabOrder.find((tab) => available[tab]) ?? "cards";
   const [active, setActive] = useState<Tab>(requested && available[requested] ? requested : firstAvailable);
 
@@ -59,10 +56,6 @@ export function LessonTabs({
     await fetch(`/api/s/${encodeURIComponent(token)}/session`, { method: "DELETE" });
     router.refresh();
   }
-
-  const primaryVideo =
-    data.videos.find((video) => Boolean(video.videoUrl) && video.locale === data.contentLocale) ??
-    data.videos.find((video) => Boolean(video.videoUrl));
 
   return (
     <div className="space-y-6">
@@ -86,7 +79,7 @@ export function LessonTabs({
       <div role="tablist" className="flex flex-wrap gap-2">
         {tabOrder.map((tab) => {
           if (!available[tab]) return null;
-          const icons = { pdf: FileText, cards: BookOpen, video: Film, game: Gamepad2, quiz: ListChecks };
+          const icons = { pdf: FileText, cards: BookOpen, game: Gamepad2, quiz: ListChecks };
           const Icon = icons[tab];
           return (
             <button
@@ -118,51 +111,6 @@ export function LessonTabs({
             cards={data.cards}
             initiallyViewed={data.deckViewed}
           />
-        ) : null}
-
-        {active === "video" && available.video ? (
-          <div className="space-y-3" data-testid="video-tab">
-            {primaryVideo ? (
-              <>
-                <video
-                  controls
-                  preload="metadata"
-                  poster={primaryVideo.posterUrl ?? undefined}
-                  className="w-full rounded-2xl border bg-black"
-                  data-testid="video-player"
-                >
-                  <source src={primaryVideo.videoUrl ?? undefined} type="video/mp4" />
-                  {primaryVideo.captionsUrl ? (
-                    <track kind="captions" src={primaryVideo.captionsUrl} srcLang={primaryVideo.locale} default />
-                  ) : null}
-                </video>
-                <div className="flex flex-wrap gap-2">
-                  {data.videos.map((video) => (
-                    <Badge key={video.locale} variant={video.status === "READY" ? "success" : video.status === "FAILED" ? "destructive" : "warning"}>
-                      {video.locale.toUpperCase()} · {videoT(video.status as Parameters<typeof videoT>[0])}
-                    </Badge>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="rounded-2xl border border-dashed bg-card p-10 text-center text-muted-foreground">
-                {data.videos.some((video) => video.status === "RENDERING" || video.status === "PENDING") ? (
-                  <div className="space-y-1">
-                    <p>{t("videoProcessing")}</p>
-                    {typeof data.videos.find((video) => video.progress !== null)?.progress === "number" ? (
-                      <p className="text-xs">
-                        {t("videoProgress", {
-                          progress: data.videos.find((video) => video.progress !== null)?.progress ?? 0,
-                        })}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  t("unavailable")
-                )}
-              </div>
-            )}
-          </div>
         ) : null}
 
         {active === "game" && available.game ? (

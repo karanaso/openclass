@@ -14,7 +14,6 @@ beforeAll(async () => {
   process.env.AUTH_SECRET = "a".repeat(40);
   process.env.TEACHER_PASSWORD = "correct-horse";
   process.env.AI_PROVIDER = "mock";
-  process.env.TTS_PROVIDER = "mock";
   process.env.REDIS_URL = `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`;
   process.env.LOGIN_MAX_FAILURES = "3";
   process.env.LOGIN_WINDOW_SECONDS = "60";

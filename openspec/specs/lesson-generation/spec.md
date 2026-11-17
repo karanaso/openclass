@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Turn an extracted lesson PDF into validated, source-grounded bilingual study cards, assessment questions, game questions, and narration scripts using AI, with failure and regeneration handled safely.
+Turn an extracted lesson PDF into validated, source-grounded bilingual study cards, assessment questions, and game questions using AI, with failure and regeneration handled safely.
 
 ## Requirements
 

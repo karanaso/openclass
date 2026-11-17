@@ -2,12 +2,6 @@ import { Readable } from "node:stream";
 import { AppError } from "@/lib/errors";
 import type { LocalStorage } from "@/server/storage";
 
-export const MEDIA_CONTENT_TYPES = {
-  video: "video/mp4",
-  captions: "text/vtt; charset=utf-8",
-  poster: "image/jpeg",
-} as const;
-
 export type ServeMediaOptions = {
   key: string;
   contentType: string;

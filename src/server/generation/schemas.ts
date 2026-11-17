@@ -46,18 +46,11 @@ export const rawQuestionSchema = z.discriminatedUnion("type", [
   rawMultipleChoiceQuestionSchema,
 ]);
 
-export const rawNarrationSchema = z.object({
-  pageNumber: z.number().int().positive(),
-  script: localeTextSchema,
-});
-
 export const cardsArtifactSchema = z.object({ cards: z.array(rawCardSchema).min(1) });
 export const questionsArtifactSchema = z.object({ questions: z.array(rawQuestionSchema).min(1) });
-export const narrationArtifactSchema = z.object({ segments: z.array(rawNarrationSchema).min(1) });
 
 export type RawCard = z.infer<typeof rawCardSchema>;
 export type RawQuestion = z.infer<typeof rawQuestionSchema>;
-export type RawNarration = z.infer<typeof rawNarrationSchema>;
 
 export type ContentCounts = {
   cards: { min: number; max: number };

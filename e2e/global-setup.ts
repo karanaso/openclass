@@ -8,8 +8,6 @@ export default async function globalSetup() {
     env: {
       ...process.env,
       AI_PROVIDER: "mock",
-      TTS_PROVIDER: "mock",
-      VIDEO_PROVIDER: "mock",
       GENERATION_MAX_ATTEMPTS: "1",
       WORKER_AUTOSTART: "1",
     },

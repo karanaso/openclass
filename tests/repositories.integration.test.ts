@@ -77,17 +77,13 @@ describe("repositories", () => {
     expect(updated.readyAt).toBeTruthy();
   });
 
-  it("publishes bilingual artifacts atomically and clears stale narration", async () => {
+  it("publishes bilingual artifacts atomically", async () => {
     const lesson = await createLesson();
-    await infra.prisma.narrationSegment.create({
-      data: { lessonId: lesson.id, pageNumber: 1, locale: "el", script: "Παλιά αφήγηση" },
-    });
     const result = await publishArtifacts(lesson.id, artifacts, infra.prisma);
     expect(result.status).toBe("READY");
     expect(await infra.prisma.card.count({ where: { lessonId: lesson.id } })).toBe(1);
     expect(await infra.prisma.cardTranslation.count()).toBeGreaterThanOrEqual(2);
     expect(await infra.prisma.question.count({ where: { lessonId: lesson.id } })).toBe(1);
-    expect(await infra.prisma.narrationSegment.count({ where: { lessonId: lesson.id } })).toBe(0);
   });
 
   it("rolls back a failed publication and preserves the previous version", async () => {

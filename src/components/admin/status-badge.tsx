@@ -7,7 +7,6 @@ const variants: Record<string, "default" | "secondary" | "success" | "warning" |
   QUEUED: "secondary",
   EXTRACTING: "warning",
   GENERATING: "warning",
-  RENDERING: "warning",
   READY: "success",
   FAILED: "destructive",
   CANCELLED: "secondary",

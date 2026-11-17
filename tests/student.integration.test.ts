@@ -29,7 +29,6 @@ beforeAll(async () => {
   process.env.AUTH_SECRET = "a".repeat(40);
   process.env.TEACHER_PASSWORD = "test";
   process.env.AI_PROVIDER = "mock";
-  process.env.TTS_PROVIDER = "mock";
   process.env.STORAGE_ROOT = storageRoot;
   resetEnvCache();
   resetStorage();
