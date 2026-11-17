@@ -11,6 +11,7 @@ export type CreateAttemptInput = {
   lessonId: string;
   studentName: string;
   normalizedStudentName: string;
+  studentSchool: string;
   mode: AttemptMode;
   locale: string;
   score: number;
@@ -43,6 +44,7 @@ export async function createAttempt(input: CreateAttemptInput, db: PrismaClient 
           lessonId: input.lessonId,
           studentName: input.studentName,
           normalizedStudentName: input.normalizedStudentName,
+          studentSchool: input.studentSchool,
           mode: input.mode,
           locale: input.locale,
           score: input.score,

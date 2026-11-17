@@ -4,6 +4,7 @@ import { getEnv } from "@/lib/env";
 
 export const STUDENT_COOKIE = "student_session";
 export const STUDENT_NAME_COOKIE = "student_name";
+export const STUDENT_SCHOOL_COOKIE = "student_school";
 export const STUDENT_SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const STUDENT_NAME_TTL_SECONDS = 60 * 60 * 24 * 365;
 
@@ -11,6 +12,7 @@ export type StudentSession = {
   role: "student";
   name: string;
   normalizedName: string;
+  school: string;
   tokenHash: string;
 };
 
@@ -21,12 +23,14 @@ function secret(): Uint8Array {
 export async function createStudentSessionToken(input: {
   name: string;
   normalizedName: string;
+  school: string;
   tokenHash: string;
 }): Promise<string> {
   return new SignJWT({
     role: "student",
     name: input.name,
     normalizedName: input.normalizedName,
+    school: input.school,
     tokenHash: input.tokenHash,
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -45,6 +49,7 @@ export async function verifyStudentSessionToken(token: string): Promise<StudentS
       payload.role !== "student" ||
       typeof payload.name !== "string" ||
       typeof payload.normalizedName !== "string" ||
+      typeof payload.school !== "string" ||
       typeof payload.tokenHash !== "string"
     ) {
       return null;
@@ -53,6 +58,7 @@ export async function verifyStudentSessionToken(token: string): Promise<StudentS
       role: "student",
       name: payload.name,
       normalizedName: payload.normalizedName,
+      school: payload.school,
       tokenHash: payload.tokenHash,
     };
   } catch {
@@ -82,7 +88,22 @@ export async function getStoredStudentName(): Promise<string | null> {
   return store.get(STUDENT_NAME_COOKIE)?.value ?? null;
 }
 
+export async function getStoredStudentSchool(): Promise<string | null> {
+  const store = await cookies();
+  return store.get(STUDENT_SCHOOL_COOKIE)?.value ?? null;
+}
+
 export function studentNameCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: STUDENT_NAME_TTL_SECONDS,
+  };
+}
+
+export function studentSchoolCookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

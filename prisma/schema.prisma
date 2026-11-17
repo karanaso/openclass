@@ -355,6 +355,7 @@ model Attempt {
   lessonId              String
   studentName           String
   normalizedStudentName String
+  studentSchool         String      @default("")
   mode                  AttemptMode
   locale                String
   score                 Int         @default(0)

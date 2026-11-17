@@ -83,6 +83,7 @@ export default async function LessonResultsPage({
                 <thead className="border-b text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="py-2 pr-3">{t("student")}</th>
+                    <th className="py-2 pr-3">{t("school")}</th>
                     <th className="py-2 pr-3">{t("mode")}</th>
                     <th className="py-2 pr-3">{t("score")}</th>
                     <th className="py-2 pr-3">{t("percentage")}</th>
@@ -96,6 +97,7 @@ export default async function LessonResultsPage({
                   {results.attempts.map((attempt) => (
                     <tr key={attempt.id} className="border-b last:border-0">
                       <td className="py-2 pr-3 font-medium">{attempt.studentName}</td>
+                      <td className="py-2 pr-3">{attempt.studentSchool}</td>
                       <td className="py-2 pr-3">
                         {attempt.mode === "QUESTIONNAIRE" ? t("modeQuestionnaire") : t("modeGame")}
                       </td>

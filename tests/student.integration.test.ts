@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SignJWT } from "jose";
 import type { PrismaClient } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
@@ -15,6 +16,7 @@ let questionnaire: typeof import("@/server/student/questionnaire");
 let game: typeof import("@/server/student/game");
 let lessonData: typeof import("@/server/student/lesson-data");
 let session: typeof import("@/server/auth/student");
+let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
 let queueModule: typeof import("@/server/queue");
 let attemptsRepository: typeof import("@/server/repositories/attempts");
 let classSummary: typeof import("@/server/student/class-summary");
@@ -42,6 +44,7 @@ beforeAll(async () => {
   game = await import("@/server/student/game");
   lessonData = await import("@/server/student/lesson-data");
   session = await import("@/server/auth/student");
+  sessionRoute = await import("@/app/api/s/[token]/session/route");
   attemptsRepository = await import("@/server/repositories/attempts");
   classSummary = await import("@/server/student/class-summary");
 }, 120_000);
@@ -209,11 +212,69 @@ describe("student session", () => {
     const token = await session.createStudentSessionToken({
       name: "Maria",
       normalizedName: "maria",
+      school: "1ο Γυμνάσιο",
       tokenHash: share.hashShareToken("abc"),
     });
     const parsed = await session.verifyStudentSessionToken(token);
     expect(parsed?.name).toBe("Maria");
+    expect(parsed?.school).toBe("1ο Γυμνάσιο");
     expect(await session.verifyStudentSessionToken(`${token}x`)).toBeNull();
+  });
+
+  it("rejects a session token without a school", async () => {
+    const token = await new SignJWT({
+      role: "student",
+      name: "Maria",
+      normalizedName: "maria",
+      tokenHash: share.hashShareToken("abc"),
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setIssuer("lessonlab")
+      .setAudience("student")
+      .setExpirationTime("3600s")
+      .sign(new TextEncoder().encode("a".repeat(40)));
+    expect(await session.verifyStudentSessionToken(token)).toBeNull();
+  });
+});
+
+describe("student session route", () => {
+  it("requires a valid school and stores it in the session", async () => {
+    const { lesson } = await createLessonFixture();
+    const link = await share.createShareLink({ lessonId: lesson.id });
+    const post = (body: unknown) =>
+      sessionRoute.POST(
+        new Request(`http://localhost:3000/api/s/${link.token}/session`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ token: link.token }) },
+      );
+
+    const accepted = await post({ name: "Maria", school: "  1ο   Γυμνάσιο  " });
+    expect(accepted.status).toBe(200);
+    const payload = (await accepted.json()) as { school: string };
+    expect(payload.school).toBe("1ο Γυμνάσιο");
+    const acceptedCookies = (accepted as unknown as { cookies: { get(name: string): { value: string } | undefined } }).cookies;
+    const sessionToken = acceptedCookies.get("student_session")?.value;
+    expect((await session.verifyStudentSessionToken(sessionToken!))?.school).toBe("1ο Γυμνάσιο");
+    expect(acceptedCookies.get("student_school")?.value).toBe("1ο Γυμνάσιο");
+
+    expect((await post({ name: "Maria", school: "   " })).status).toBe(422);
+    expect((await post({ name: "Maria", school: "a".repeat(121) })).status).toBe(422);
+  });
+
+  it("clears the school cookie on logout", async () => {
+    const response = await sessionRoute.DELETE();
+    expect(response.status).toBe(200);
+    const responseCookies = (
+      response as unknown as {
+        cookies: { getAll(): Array<{ name: string; maxAge: number }>; get(name: string): { maxAge: number } | undefined };
+      }
+    ).cookies;
+    expect(responseCookies.getAll().map((cookie) => cookie.name)).toContain("student_school");
+    expect(responseCookies.get("student_school")?.maxAge).toBe(0);
   });
 });
 
@@ -224,6 +285,7 @@ describe("questionnaire class summary data", () => {
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "el",
       score: 4,
       maxScore: 5,
@@ -331,6 +393,7 @@ describe("questionnaire grading", () => {
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "en",
       answers: questions.map((question) => ({ questionId: question.id, optionId: "a" })),
       durationMs: 5000,
@@ -342,11 +405,14 @@ describe("questionnaire grading", () => {
     expect(result.result.score).toBe(3);
     expect(result.result.percentage).toBe(100);
     expect(result.result.feedback).toHaveLength(3);
+    const stored = await prisma.attempt.findUniqueOrThrow({ where: { id: result.result.attemptId } });
+    expect(stored.studentSchool).toBe("Test School");
 
     const duplicate = await questionnaire.submitQuestionnaire({
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "en",
       answers: [],
       durationMs: 1,
@@ -358,6 +424,35 @@ describe("questionnaire grading", () => {
     expect(duplicate.result.score).toBe(3);
   });
 
+  it("keeps the school supplied for each attempt", async () => {
+    const { lesson } = await createLessonFixture();
+    const questions = await prisma.question.findMany({ where: { lessonId: lesson.id, mode: "QUESTIONNAIRE" }, orderBy: { position: "asc" } });
+    const submit = (school: string, idempotencyKey: string) =>
+      questionnaire.submitQuestionnaire({
+        lessonId: lesson.id,
+        studentName: "Sofia",
+        normalizedStudentName: "sofia",
+        studentSchool: school,
+        locale: "el",
+        answers: [{ questionId: questions[0].id, optionId: "a" }],
+        durationMs: 1000,
+        idempotencyKey,
+        retakeEnabled: true,
+        passThreshold: 60,
+      });
+
+    const first = await submit("School A", "school-1");
+    const second = await submit("School B", "school-2");
+    const rows = await prisma.attempt.findMany({
+      where: { lessonId: lesson.id, normalizedStudentName: "sofia" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, studentSchool: true },
+    });
+    expect(rows.map((row) => row.studentSchool)).toEqual(["School A", "School B"]);
+    expect(rows.find((row) => row.id === first.result.attemptId)?.studentSchool).toBe("School A");
+    expect(rows.find((row) => row.id === second.result.attemptId)?.studentSchool).toBe("School B");
+  });
+
   it("allows retakes with a new attempt and keeps idempotent submissions", async () => {
     const { lesson } = await createLessonFixture();
     const questions = await prisma.question.findMany({ where: { lessonId: lesson.id, mode: "QUESTIONNAIRE" }, orderBy: { position: "asc" } });
@@ -365,6 +460,7 @@ describe("questionnaire grading", () => {
       lessonId: lesson.id,
       studentName: "Nikos",
       normalizedStudentName: "nikos",
+      studentSchool: "Test School",
       locale: "el",
       answers: [{ questionId: questions[0].id, optionId: "a" }],
       durationMs: 1000,
@@ -379,6 +475,7 @@ describe("questionnaire grading", () => {
       lessonId: lesson.id,
       studentName: "Nikos",
       normalizedStudentName: "nikos",
+      studentSchool: "Test School",
       locale: "el",
       answers: [{ questionId: questions[0].id, optionId: "b" }],
       durationMs: 1000,
@@ -392,6 +489,7 @@ describe("questionnaire grading", () => {
       lessonId: lesson.id,
       studentName: "Nikos",
       normalizedStudentName: "nikos",
+      studentSchool: "Test School",
       locale: "el",
       answers: questions.map((question) => ({ questionId: question.id, optionId: "a" })),
       durationMs: 1000,
@@ -418,6 +516,7 @@ describe("questionnaire grading", () => {
           lessonId: lesson.id,
           studentName: name,
           normalizedStudentName: normalizedName,
+          studentSchool: "Test School",
           mode: "QUESTIONNAIRE",
           locale: "el",
           score: Math.round((percentage / 100) * questions.length),
@@ -434,6 +533,7 @@ describe("questionnaire grading", () => {
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "el",
       answers: questions.map((question) => ({ questionId: question.id, optionId: "a" })),
       durationMs: 1000,
@@ -489,9 +589,13 @@ describe("millionaire game", () => {
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "en",
     });
     expect(started.status).toBe("ACTIVE");
+    expect((await prisma.attempt.findUniqueOrThrow({ where: { id: started.attemptId } })).studentSchool).toBe(
+      "Test School",
+    );
     const activeJson = JSON.stringify(started);
     expect(activeJson).not.toContain("correctOptionId");
     expect(activeJson).not.toContain("explanation");
@@ -501,6 +605,7 @@ describe("millionaire game", () => {
       lessonId: lesson.id,
       studentName: "Maria",
       normalizedStudentName: "maria",
+      studentSchool: "Test School",
       locale: "en",
     });
     expect(resumed.attemptId).toBe(started.attemptId);
@@ -558,6 +663,7 @@ describe("millionaire game", () => {
       lessonId: lesson.id,
       studentName: "Eleni",
       normalizedStudentName: "eleni",
+      studentSchool: "Test School",
       locale: "el",
     });
     await prisma.attempt.update({
@@ -568,6 +674,7 @@ describe("millionaire game", () => {
       lessonId: lesson.id,
       studentName: "Eleni",
       normalizedStudentName: "eleni",
+      studentSchool: "Test School",
       locale: "el",
     });
     expect(restarted.attemptId).not.toBe(started.attemptId);

@@ -757,6 +757,7 @@ describe("video routes", () => {
     const studentToken = await studentAuth.createStudentSessionToken({
       name: "Student",
       normalizedName: "student",
+      school: "Test School",
       tokenHash: shareLinks.hashShareToken(share.token),
     });
     const studentPlaying = await studentMediaRoute.GET(

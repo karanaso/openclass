@@ -11,6 +11,7 @@ export async function submitQuestionnaire(input: {
   lessonId: string;
   studentName: string;
   normalizedStudentName: string;
+  studentSchool: string;
   locale: string;
   answers: SubmittedAnswer[];
   durationMs: number;
@@ -68,6 +69,7 @@ export async function submitQuestionnaire(input: {
       lessonId: input.lessonId,
       studentName: input.studentName,
       normalizedStudentName: input.normalizedStudentName,
+      studentSchool: input.studentSchool,
       mode: "QUESTIONNAIRE",
       locale: input.locale,
       score,

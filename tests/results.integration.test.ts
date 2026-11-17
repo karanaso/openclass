@@ -91,6 +91,7 @@ async function seed() {
     lessonId: string,
     name: string,
     normalizedName: string,
+    school: string,
     percentage: number,
     passed: boolean,
     answers: Array<{ questionId: string; selectedOptionId: string; isCorrect: boolean }>,
@@ -100,6 +101,7 @@ async function seed() {
         lessonId,
         studentName: name,
         normalizedStudentName: normalizedName,
+        studentSchool: school,
         mode: "QUESTIONNAIRE",
         locale: "en",
         score: answers.filter((answer) => answer.isCorrect).length,
@@ -112,19 +114,19 @@ async function seed() {
       },
     });
 
-  await createAttempt(lessonA.id, 'Maria "M", Test', "maria", 100, true, [
+  await createAttempt(lessonA.id, 'Maria "M", Test', "maria", "School A", 100, true, [
     { questionId: questions[0].id, selectedOptionId: "a", isCorrect: true },
     { questionId: questions[1].id, selectedOptionId: "b", isCorrect: true },
   ]);
-  await createAttempt(lessonA.id, "Nikos", "nikos", 50, false, [
+  await createAttempt(lessonA.id, "Nikos", "nikos", "School B", 50, false, [
     { questionId: questions[0].id, selectedOptionId: "a", isCorrect: true },
     { questionId: questions[1].id, selectedOptionId: "a", isCorrect: false },
   ]);
-  await createAttempt(lessonA.id, "Eleni", "eleni", 0, false, [
+  await createAttempt(lessonA.id, "Eleni", "eleni", "School A", 0, false, [
     { questionId: questions[0].id, selectedOptionId: "c", isCorrect: false },
     { questionId: questions[1].id, selectedOptionId: "a", isCorrect: false },
   ]);
-  await createAttempt(lessonB.id, "Maria", "maria", 70, true, []);
+  await createAttempt(lessonB.id, "Maria", "maria", "School C", 70, true, []);
 
   await prisma.deckView.create({ data: { lessonId: lessonA.id, normalizedStudentName: "maria" } });
 
@@ -146,6 +148,7 @@ describe("results analytics", () => {
     expect(report.questions[0].correctRate).toBe(33);
     expect(report.questions[1].correctRate).toBe(67);
     expect(report.questions[0].options.find((option) => option.id === "a")?.count).toBe(2);
+    expect(report.attempts.find((attempt) => attempt.studentName === "Nikos")?.studentSchool).toBe("School B");
   });
 
   it("computes class summaries and per-student averages", async () => {
@@ -163,12 +166,17 @@ describe("results analytics", () => {
   it("exports lesson and class CSVs with escaping", async () => {
     const { classroom, lessonA } = await seed();
     const lessonCsv = await results.exportLessonCsv(lessonA.id);
-    expect(lessonCsv.split("\r\n")[0]).toContain("student");
+    expect(lessonCsv.split("\r\n")[0]).toBe(
+      "lesson,student,school,mode,score,max_score,percentage,passed,duration_ms,completed_at",
+    );
     expect(lessonCsv).toContain('"Maria ""M"", Test"');
+    expect(lessonCsv).toContain("School A");
+    expect(lessonCsv).toContain("School B");
     expect(lessonCsv.split("\r\n")).toHaveLength(4);
 
     const classCsv = await results.exportClassCsv(classroom.id);
     expect(classCsv).toContain("Class Results");
+    expect(classCsv).toContain("School C");
     expect(classCsv.split("\r\n")).toHaveLength(5);
   });
 

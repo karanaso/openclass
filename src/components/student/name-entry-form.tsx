@@ -9,11 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function NameEntryForm({ token, defaultName = "" }: { token: string; defaultName?: string }) {
+export function NameEntryForm({
+  token,
+  defaultName = "",
+  defaultSchool = "",
+}: {
+  token: string;
+  defaultName?: string;
+  defaultSchool?: string;
+}) {
   const t = useTranslations("student");
   const tc = useTranslations("common");
   const router = useRouter();
   const [name, setName] = useState(defaultName);
+  const [school, setSchool] = useState(defaultSchool);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -25,10 +34,18 @@ export function NameEntryForm({ token, defaultName = "" }: { token: string; defa
       const response = await fetch(`/api/s/${encodeURIComponent(token)}/session`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, school }),
       });
       if (!response.ok) {
-        setError(tc("error"));
+        const payload = (await response.json().catch(() => null)) as { error?: { code?: string } } | null;
+        const code = payload?.error?.code;
+        setError(
+          code === "invalid_school"
+            ? t("invalidSchool")
+            : code === "invalid_name"
+              ? t("invalidName")
+              : tc("error"),
+        );
         return;
       }
       router.refresh();
@@ -43,6 +60,19 @@ export function NameEntryForm({ token, defaultName = "" }: { token: string; defa
     <form onSubmit={submit} className="space-y-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="space-y-2">
+        <Label htmlFor="student-school">{t("schoolLabel")}</Label>
+        <Input
+          id="student-school"
+          data-testid="student-school"
+          value={school}
+          onChange={(event) => setSchool(event.target.value)}
+          placeholder={t("schoolPlaceholder")}
+          maxLength={120}
+          autoFocus
+          required
+        />
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="student-name">{t("nameLabel")}</Label>
         <Input
           id="student-name"
@@ -51,7 +81,6 @@ export function NameEntryForm({ token, defaultName = "" }: { token: string; defa
           onChange={(event) => setName(event.target.value)}
           placeholder={t("namePlaceholder")}
           maxLength={80}
-          autoFocus
           required
         />
       </div>

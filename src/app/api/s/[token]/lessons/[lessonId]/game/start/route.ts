@@ -19,6 +19,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       lessonId,
       studentName: session.name,
       normalizedStudentName: session.normalizedName,
+      studentSchool: session.school,
       locale: body.locale,
     });
     return json({ state });

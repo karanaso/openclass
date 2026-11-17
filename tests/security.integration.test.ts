@@ -124,6 +124,7 @@ async function studentSession(token: string, name = "Maria") {
   const jwt = await studentAuth.createStudentSessionToken({
     name,
     normalizedName: name.toLowerCase(),
+    school: "Test School",
     tokenHash: shareService.hashShareToken(token),
   });
   return `student_session=${jwt}`;
@@ -138,6 +139,7 @@ describe("security smoke", () => {
     const studentJwt = await studentAuth.createStudentSessionToken({
       name: "Maria",
       normalizedName: "maria",
+      school: "Test School",
       tokenHash: shareService.hashShareToken(share.token),
     });
     const asTeacher = await adminClasses.GET(
@@ -196,7 +198,7 @@ describe("security smoke", () => {
       new Request(`http://localhost:3000/api/s/${share.token}/session`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: "Maria" }),
+        body: JSON.stringify({ name: "Maria", school: "Test School" }),
       }),
       { params: Promise.resolve({ token: share.token }) },
     );

@@ -6,7 +6,7 @@ import { NameEntryForm } from "@/components/student/name-entry-form";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
-import { getStoredStudentName, getStudentSession } from "@/server/auth/student";
+import { getStoredStudentName, getStoredStudentSchool, getStudentSession } from "@/server/auth/student";
 import { hashShareToken, resolveShareToken } from "@/server/services/share-links";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ export default async function ShareLandingPage({
 
   const session = await getStudentSession();
   const storedName = await getStoredStudentName();
+  const storedSchool = await getStoredStudentSchool();
   const sessionMatches = Boolean(session && session.tokenHash === hashShareToken(token));
 
   if (share && share.lessonId && sessionMatches) {
@@ -72,7 +73,11 @@ export default async function ShareLandingPage({
               {!sessionMatches ? (
                 <CardContent>
                   <h2 className="mb-4 text-lg font-semibold">{t("nameTitle")}</h2>
-                  <NameEntryForm token={token} defaultName={session?.name ?? storedName ?? ""} />
+                  <NameEntryForm
+                    token={token}
+                    defaultName={session?.name ?? storedName ?? ""}
+                    defaultSchool={session?.school ?? storedSchool ?? ""}
+                  />
                 </CardContent>
               ) : share.class ? (
                 <CardContent className="space-y-3">

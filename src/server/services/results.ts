@@ -5,6 +5,7 @@ import { AppError } from "@/lib/errors";
 export type AttemptRow = {
   id: string;
   studentName: string;
+  studentSchool: string;
   mode: AttemptMode;
   score: number;
   maxScore: number;
@@ -72,6 +73,7 @@ export async function getLessonResults(lessonId: string, db: PrismaClient = defa
   const attempts: AttemptRow[] = lesson.attempts.map((attempt) => ({
     id: attempt.id,
     studentName: attempt.studentName,
+    studentSchool: attempt.studentSchool,
     mode: attempt.mode,
     score: attempt.score,
     maxScore: attempt.maxScore,
@@ -241,6 +243,7 @@ export async function exportLessonCsv(lessonId: string, db: PrismaClient = defau
     results.attempts.map((attempt) => ({
       lesson: results.lesson.title,
       student: attempt.studentName,
+      school: attempt.studentSchool,
       mode: attempt.mode,
       score: attempt.score,
       max_score: attempt.maxScore,
@@ -249,7 +252,7 @@ export async function exportLessonCsv(lessonId: string, db: PrismaClient = defau
       duration_ms: attempt.durationMs,
       completed_at: attempt.completedAt,
     })),
-    ["lesson", "student", "mode", "score", "max_score", "percentage", "passed", "duration_ms", "completed_at"],
+    ["lesson", "student", "school", "mode", "score", "max_score", "percentage", "passed", "duration_ms", "completed_at"],
   );
 }
 
@@ -274,6 +277,7 @@ export async function exportClassCsv(classId: string, db: PrismaClient = default
       class: classroom.name,
       lesson: lesson.title,
       student: attempt.studentName,
+      school: attempt.studentSchool,
       mode: attempt.mode,
       score: attempt.score,
       max_score: attempt.maxScore,
@@ -288,6 +292,7 @@ export async function exportClassCsv(classId: string, db: PrismaClient = default
     "class",
     "lesson",
     "student",
+    "school",
     "mode",
     "score",
     "max_score",

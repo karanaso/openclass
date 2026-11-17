@@ -39,6 +39,7 @@ export async function startGame(input: {
   lessonId: string;
   studentName: string;
   normalizedStudentName: string;
+  studentSchool: string;
   locale: "el" | "en";
   db?: PrismaClient;
 }) {
@@ -79,6 +80,7 @@ export async function startGame(input: {
       lessonId: input.lessonId,
       studentName: input.studentName,
       normalizedStudentName: input.normalizedStudentName,
+      studentSchool: input.studentSchool,
       mode: "GAME",
       locale: input.locale,
       score: 0,

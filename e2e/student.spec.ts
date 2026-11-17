@@ -83,13 +83,28 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   expect(shareUrl).toContain("/el/s/");
   const shareToken = shareUrl.split("/s/")[1];
 
-  const blankName = await page.request.post(`/api/s/${shareToken}/session`, { data: { name: "   " } });
+  const blankName = await page.request.post(`/api/s/${shareToken}/session`, {
+    data: { name: "   ", school: "1ο Γυμνάσιο" },
+  });
   expect(blankName.status()).toBe(422);
+  const blankSchool = await page.request.post(`/api/s/${shareToken}/session`, {
+    data: { name: "Μαθήτρια", school: "   " },
+  });
+  expect(blankSchool.status()).toBe(422);
 
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(shareUrl);
-  await expect(page.getByTestId("student-name")).toBeVisible();
-  await page.getByTestId("student-name").fill(`Μαθήτρια ${suffix}`);
+  const schoolField = page.getByTestId("student-school");
+  const nameField = page.getByTestId("student-name");
+  await expect(schoolField).toBeVisible();
+  await expect(nameField).toBeVisible();
+  const schoolBox = await schoolField.boundingBox();
+  const nameBox = await nameField.boundingBox();
+  expect(schoolBox!.y).toBeLessThan(nameBox!.y);
+  await schoolField.fill("1ο Γυμνάσιο");
+  await nameField.fill(`Μαθήτρια ${suffix}`);
   await page.getByTestId("student-start").click();
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);
   const lessonUrl = page.url();
@@ -115,6 +130,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
           lessonId,
           studentName: `${label} ${suffix}`,
           normalizedStudentName: `${label.toLowerCase().replace(" ", "-")}-${suffix}`,
+          studentSchool: "1ο Γυμνάσιο",
           mode: "QUESTIONNAIRE",
           locale: "el",
           score: Math.round((percentage / 100) * 5),
@@ -247,18 +263,22 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
     expect(overflow).toBe(true);
   }
 
-  // A returning browser is offered the stored name even after the session cookie is gone.
+  // A returning browser is offered the stored name and school even after the session cookie is gone.
   await page.context().clearCookies({ name: "student_session" });
   await page.goto(shareUrl);
   await expect(page.getByTestId("student-name")).toHaveValue(`Μαθήτρια ${suffix}`);
+  await expect(page.getByTestId("student-school")).toHaveValue("1ο Γυμνάσιο");
 
   // Teacher results dashboards
   await page.goto(`/el/admin/lessons/${lessonId}/results`);
   await expect(page.getByText(`Μαθήτρια ${suffix}`)).toBeVisible();
+  await expect(page.getByText("1ο Γυμνάσιο").first()).toBeVisible();
   await expect(page.getByText("Ανά ερώτηση")).toBeVisible();
   const csv = await page.request.get(`/api/admin/lessons/${lessonId}/results/export`);
   expect(csv.status()).toBe(200);
-  expect(await csv.text()).toContain("student");
+  const csvText = await csv.text();
+  expect(csvText.split("\r\n")[0]).toContain("school");
+  expect(csvText).toContain("1ο Γυμνάσιο");
 
   await page.goto(`/el/admin/classes/${classId}/results`);
   await expect(page.getByText("Σύνοψη τάξης")).toBeVisible();
@@ -267,6 +287,76 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   // Teacher cleanup (the teacher session from the start of the test is still valid)
   await page.goto("/el/admin");
   await expect(page).toHaveURL(/\/el\/admin/);
+  await page.request.delete(`/api/admin/classes/${classId}`, { data: { confirm: true } });
+});
+
+test("requires the school above the name and remembers it", async ({ page }) => {
+  test.setTimeout(120_000);
+  const suffix = Date.now().toString(36);
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl() } } });
+  let classId: string;
+  let lessonId: string;
+  try {
+    const classroom = await prisma.class.create({ data: { name: `Entry class ${suffix}` } });
+    const lesson = await prisma.lesson.create({
+      data: {
+        classId: classroom.id,
+        title: `Entry lesson ${suffix}`,
+        originalFilename: `${suffix}.pdf`,
+        storageKey: `lessons/${suffix}/original.pdf`,
+        checksum: `entry-${suffix}`,
+        sizeBytes: 100,
+        pageCount: 1,
+        sourceLocale: "el",
+        status: "READY",
+        passThreshold: 60,
+      },
+    });
+    classId = classroom.id;
+    lessonId = lesson.id;
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  await page.goto("/el/login");
+  await page.getByLabel("Κωδικός πρόσβασης").fill("change-me");
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/el\/admin/);
+  await page.goto(`/el/admin/lessons/${lessonId}`);
+  await page.getByTestId("create-share-link").click();
+  const shareUrl = await page.getByTestId("share-url").inputValue();
+  const token = shareUrl.split("/s/")[1];
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(shareUrl);
+  const school = page.getByTestId("student-school");
+  const name = page.getByTestId("student-name");
+  await expect(school).toBeVisible();
+  await expect(name).toBeVisible();
+  const schoolBox = await school.boundingBox();
+  const nameBox = await name.boundingBox();
+  expect(schoolBox!.y).toBeLessThan(nameBox!.y);
+
+  // The required attribute blocks a blank school before the form submits.
+  await name.fill("Μαθήτρια");
+  await page.getByTestId("student-start").click();
+  expect(page.url()).toContain(`/s/${token}`);
+  expect(await school.evaluate((element) => (element as HTMLInputElement).validity.valueMissing)).toBe(true);
+
+  const blankSchool = await page.request.post(`/api/s/${token}/session`, {
+    data: { name: "Μαθήτρια", school: "   " },
+  });
+  expect(blankSchool.status()).toBe(422);
+
+  await school.fill("1ο Γυμνάσιο");
+  await page.getByTestId("student-start").click();
+  await expect(page).toHaveURL(new RegExp(`/s/${token}/lesson/${lessonId}`));
+
+  await page.context().clearCookies({ name: "student_session" });
+  await page.goto(shareUrl);
+  await expect(page.getByTestId("student-school")).toHaveValue("1ο Γυμνάσιο");
+  await expect(page.getByTestId("student-name")).toHaveValue("Μαθήτρια");
+
   await page.request.delete(`/api/admin/classes/${classId}`, { data: { confirm: true } });
 });
 
@@ -314,5 +404,6 @@ test("copies an existing lesson share link after a reload", async ({ page }) => 
   expect(copied).toBe(shareUrl);
 
   await page.goto(copied);
+  await expect(page.getByTestId("student-school")).toBeVisible();
   await expect(page.getByTestId("student-name")).toBeVisible();
 });

@@ -232,6 +232,9 @@
   "student": {
     "nameTitle": "What is your name?",
     "nameSubtitle": "Your name is used only for your results.",
+    "schoolLabel": "School",
+    "schoolPlaceholder": "e.g. 1st Gymnasium of Athens",
+    "invalidSchool": "Enter a school of up to 120 characters.",
     "nameLabel": "Your name",
     "namePlaceholder": "e.g. Maria Papadopoulou",
     "enter": "Start",
@@ -311,6 +314,7 @@
     "subtitle": "Track student progress per lesson.",
     "empty": "No results yet.",
     "student": "Student",
+    "school": "School",
     "mode": "Mode",
     "score": "Score",
     "percentage": "Percentage",
