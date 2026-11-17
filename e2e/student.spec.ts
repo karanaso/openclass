@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -214,6 +215,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   // Locale switching keeps the PDF tab and the same source document.
   await page.getByTestId("tab-pdf").click();
+  await expect(page).toHaveURL(/[?&]tab=pdf/);
   await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
   await page.locator("select").first().selectOption("el");
   await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);
@@ -326,6 +328,83 @@ test("requires the school above the name and remembers it", async ({ page }) => 
   await expect(page.getByTestId("student-name")).toHaveValue("Μαθήτρια");
 
   await page.request.delete(`/api/admin/classes/${classId}`, { data: { confirm: true } });
+});
+
+test("recovers a stale student session on the game tab", async ({ page }) => {
+  test.setTimeout(120_000);
+  const suffix = Date.now().toString(36);
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl() } } });
+  let classId: string | null = null;
+  try {
+    const classroom = await prisma.class.create({ data: { name: `Game session class ${suffix}` } });
+    classId = classroom.id;
+    const lesson = await prisma.lesson.create({
+      data: {
+        classId: classroom.id,
+        title: `Game session lesson ${suffix}`,
+        originalFilename: `${suffix}.pdf`,
+        storageKey: `lessons/${suffix}/original.pdf`,
+        checksum: `game-session-${suffix}`,
+        sizeBytes: 100,
+        pageCount: 1,
+        sourceLocale: "el",
+        status: "READY",
+        passThreshold: 60,
+      },
+    });
+    await prisma.question.create({
+      data: {
+        lessonId: lesson.id,
+        mode: "GAME",
+        itemKey: `game-${suffix}`,
+        position: 0,
+        type: "MULTIPLE_CHOICE",
+        correctOptionId: "a",
+        sourcePage: 1,
+        translations: {
+          create: [
+            {
+              locale: "el",
+              prompt: "Ποια είναι η σωστή απάντηση;",
+              options: [
+                { id: "a", text: "Σωστή" },
+                { id: "b", text: "Λάθος" },
+              ],
+              explanation: "Η πρώτη επιλογή είναι σωστή.",
+            },
+          ],
+        },
+      },
+    });
+    await prisma.shareLink.create({ data: { lessonId: lesson.id, token, tokenHash } });
+
+    await page.goto(`/el/s/${token}`);
+    await page.getByTestId("student-school").fill("1ο Γυμνάσιο");
+    await page.getByTestId("student-name").fill("Μαθήτρια");
+    await page.getByTestId("student-start").click();
+    await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);
+
+    await page.getByTestId("tab-game").click();
+    await expect(page.getByTestId("game-start")).toBeVisible();
+
+    // The tab keeps rendering after the session is gone, but the game API rejects it.
+    await page.context().clearCookies({ name: "student_session" });
+    await page.getByTestId("game-start").click();
+
+    const expired = page.getByTestId("game-session-expired");
+    await expect(expired).toBeVisible();
+    await expect(expired).toContainText("Η συνεδρία σου έληξε");
+    await expect(page.getByTestId("game-reenter-name")).toHaveAttribute("href", `/el/s/${token}`);
+    await expect(page.getByText("Αυτό το περιεχόμενο δεν είναι διαθέσιμο ακόμη.")).toHaveCount(0);
+
+    await page.getByTestId("game-reenter-name").click();
+    await expect(page.getByTestId("student-name")).toBeVisible();
+  } finally {
+    if (classId) await prisma.class.delete({ where: { id: classId } }).catch(() => undefined);
+    await prisma.$disconnect();
+  }
 });
 
 test("copies an existing lesson share link after a reload", async ({ page }) => {

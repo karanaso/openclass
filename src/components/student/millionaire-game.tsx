@@ -2,12 +2,14 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { HelpCircle, Trophy, Users, Volume2, VolumeX } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "@/i18n/navigation";
 import { BalloonCelebration } from "./balloon-celebration";
+import { readGameFailure, UNEXPECTED_GAME_FAILURE, type GameFailure } from "./game-failure";
 import { useStudentSound } from "./use-student-sound";
 
 type Option = { id: string; text: string };
@@ -57,29 +59,48 @@ export function MillionaireGame({
   hasQuestions: boolean;
 }) {
   const t = useTranslations("student");
+  const pageLocale = useLocale();
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [state, setState] = useState<GameState | null>(null);
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; correctOptionId: string; explanation: string; sourcePage: number } | null>(null);
   const [removedOptions, setRemovedOptions] = useState<string[]>([]);
   const [audience, setAudience] = useState<Record<string, number> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<GameFailure | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const { muted, toggleMute, startAmbience, stopAmbience, playTone } = useStudentSound();
 
+  function refreshLessonData() {
+    setRefreshing(true);
+    router.refresh();
+    window.setTimeout(() => setRefreshing(false), 600);
+  }
+
+  function handleFailure(next: GameFailure) {
+    setFailure(next);
+    if (next.kind === "not_ready" || next.kind === "no_questions") refreshLessonData();
+  }
+
+  function retry() {
+    setFailure(null);
+    if (!state) void start();
+  }
+
   async function start() {
     setLoading(true);
-    setError(null);
+    setFailure(null);
     try {
       const response = await fetch(`/api/s/${encodeURIComponent(token)}/lessons/${lessonId}/game/start`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ locale }),
       });
-      const data = await response.json();
       if (!response.ok) {
-        setError(t("unavailable"));
+        handleFailure(await readGameFailure(response));
         return;
       }
+      const data = await response.json();
       setState(data.state);
       setFeedback(null);
       setRemovedOptions([]);
@@ -89,7 +110,7 @@ export function MillionaireGame({
         playTone(440);
       }
     } catch {
-      setError(t("unavailable"));
+      handleFailure(UNEXPECTED_GAME_FAILURE);
     } finally {
       setLoading(false);
     }
@@ -98,6 +119,7 @@ export function MillionaireGame({
   async function answer(optionId: string) {
     if (!state || state.status !== "ACTIVE" || !state.question || feedback) return;
     setLoading(true);
+    setFailure(null);
     try {
       const response = await fetch(`/api/s/${encodeURIComponent(token)}/lessons/${lessonId}/game/answer`, {
         method: "POST",
@@ -109,11 +131,11 @@ export function MillionaireGame({
           locale,
         }),
       });
-      const data = await response.json();
       if (!response.ok) {
-        setError(t("unavailable"));
+        handleFailure(await readGameFailure(response));
         return;
       }
+      const data = await response.json();
       setFeedback(data.result);
       playTone(data.result.isCorrect ? 660 : 180, 0.3, data.result.isCorrect ? "sine" : "sawtooth");
       const delay = reduceMotion ? 0 : 1400;
@@ -133,7 +155,7 @@ export function MillionaireGame({
         }
       }, delay);
     } catch {
-      setError(t("unavailable"));
+      handleFailure(UNEXPECTED_GAME_FAILURE);
     } finally {
       setLoading(false);
     }
@@ -141,17 +163,18 @@ export function MillionaireGame({
 
   async function lifeline(kind: "fiftyFifty" | "askAudience") {
     if (!state || state.status !== "ACTIVE") return;
+    setFailure(null);
     try {
       const response = await fetch(`/api/s/${encodeURIComponent(token)}/lessons/${lessonId}/game/lifeline`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ attemptId: state.attemptId, lifeline: kind, locale }),
       });
-      const data = await response.json();
       if (!response.ok) {
-        setError(t("unavailable"));
+        handleFailure(await readGameFailure(response));
         return;
       }
+      const data = await response.json();
       setState((current) => (current && current.status === "ACTIVE" ? { ...current, lifelines: data.lifelines } : current));
       if (kind === "fiftyFifty") {
         setRemovedOptions(data.removedOptionIds ?? []);
@@ -161,18 +184,67 @@ export function MillionaireGame({
         playTone(520, 0.2, "triangle");
       }
     } catch {
-      setError(t("unavailable"));
+      handleFailure(UNEXPECTED_GAME_FAILURE);
     }
   }
 
   if (!hasQuestions) {
-    return <p className="text-sm text-muted-foreground">{t("unavailable")}</p>;
+    return (
+      <p className="rounded-2xl border border-dashed bg-card p-10 text-center text-sm text-muted-foreground" data-testid="game-no-questions">
+        {t("gameNoQuestions")}
+      </p>
+    );
+  }
+
+  if (failure?.kind === "session") {
+    return (
+      <div className="space-y-3 rounded-2xl border border-dashed bg-card p-10 text-center" data-testid="game-session-expired">
+        <p className="text-muted-foreground">{t("gameSessionExpired")}</p>
+        <a
+          href={`/${pageLocale}/s/${encodeURIComponent(token)}`}
+          data-testid="game-reenter-name"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          {t("gameReenterName")}
+        </a>
+      </div>
+    );
+  }
+
+  if (failure?.kind === "not_ready") {
+    return (
+      <div className="space-y-3 rounded-2xl border border-dashed bg-card p-10 text-center" data-testid="game-not-ready">
+        <p className="text-muted-foreground">{t("gameNotReady")}</p>
+        <Button onClick={retry} disabled={loading || refreshing} data-testid="game-retry">
+          {t("gameRetry")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (failure?.kind === "no_questions") {
+    return (
+      <p className="rounded-2xl border border-dashed bg-card p-10 text-center text-sm text-muted-foreground" data-testid="game-no-questions">
+        {t("gameNoQuestions")}
+      </p>
+    );
+  }
+
+  if (failure?.kind === "ended") {
+    return (
+      <div className="space-y-3 text-center" data-testid="game-ended-notice">
+        <Alert variant="warning">{t("gameEnded")}</Alert>
+        <Button onClick={start} disabled={loading}>
+          {t("playAgain")}
+        </Button>
+      </div>
+    );
   }
 
   if (!state) {
     return (
       <div className="space-y-4 text-center">
-        {error ? <Alert variant="error">{error}</Alert> : null}
+        {failure ? <Alert variant="error">{t("gameUnexpected")}</Alert> : null}
         <div className="rounded-3xl border bg-gradient-to-br from-amber-50 to-card p-10">
           <Trophy className="mx-auto h-12 w-12 text-amber-500" aria-hidden />
           <h2 className="mt-4 text-2xl font-black">{t("startGame")}</h2>
@@ -186,9 +258,11 @@ export function MillionaireGame({
 
   if (state.status === "EXPIRED") {
     return (
-      <div className="space-y-4 text-center">
-        <Alert variant="warning">{t("unavailable")}</Alert>
-        <Button onClick={start}>{t("startGame")}</Button>
+      <div className="space-y-4 text-center" data-testid="game-expired">
+        <Alert variant="warning">{t("gameExpired")}</Alert>
+        <Button onClick={start} disabled={loading}>
+          {t("playAgain")}
+        </Button>
       </div>
     );
   }
@@ -236,13 +310,20 @@ export function MillionaireGame({
   const activeState = state as ActiveState;
   const question = activeState.question;
   if (!question) {
-    return <p className="text-sm text-muted-foreground">{t("unavailable")}</p>;
+    return (
+      <div className="space-y-3 text-center" data-testid="game-missing-question">
+        <Alert variant="error">{t("gameUnexpected")}</Alert>
+        <Button onClick={start} disabled={loading}>
+          {t("gameRetry")}
+        </Button>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4" data-testid="game">
       <BalloonCelebration />
-      {error ? <Alert variant="error">{error}</Alert> : null}
+      {failure ? <Alert variant="error">{t("gameUnexpected")}</Alert> : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{t("questionOf", { current: activeState.level + 1, total: activeState.total })}</Badge>

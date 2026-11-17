@@ -123,4 +123,28 @@ describe("lesson tabs", () => {
     expect(screen.getByTestId("card-deck-mock")).toBeInTheDocument();
     expect(screen.queryByTestId("pdf-viewer-mock")).not.toBeInTheDocument();
   });
+
+  it("falls back to the first available tab when the game disappears after a refresh", () => {
+    state.params = new URLSearchParams("tab=game");
+    const gameQuestion: StudentLessonData["game"][number] = {
+      id: "q1",
+      type: "MULTIPLE_CHOICE",
+      prompt: "Question one",
+      options: [],
+    };
+    const withGame: StudentLessonData = { ...data(null), game: [gameQuestion] };
+    const { rerender } = render(
+      <LessonTabs token="token" studentName="Maria" data={withGame} />,
+    );
+
+    expect(screen.getByTestId("tab-game")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("game-mock")).toBeInTheDocument();
+
+    rerender(<LessonTabs token="token" studentName="Maria" data={{ ...withGame, game: [] }} />);
+
+    expect(screen.queryByTestId("tab-game")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tab-cards")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("card-deck-mock")).toBeInTheDocument();
+    expect(screen.queryByTestId("game-mock")).not.toBeInTheDocument();
+  });
 });

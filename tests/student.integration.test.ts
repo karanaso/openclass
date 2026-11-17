@@ -17,6 +17,7 @@ let game: typeof import("@/server/student/game");
 let lessonData: typeof import("@/server/student/lesson-data");
 let session: typeof import("@/server/auth/student");
 let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
+let gameStartRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
 let queueModule: typeof import("@/server/queue");
 let attemptsRepository: typeof import("@/server/repositories/attempts");
 let classSummary: typeof import("@/server/student/class-summary");
@@ -44,6 +45,7 @@ beforeAll(async () => {
   lessonData = await import("@/server/student/lesson-data");
   session = await import("@/server/auth/student");
   sessionRoute = await import("@/app/api/s/[token]/session/route");
+  gameStartRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
   attemptsRepository = await import("@/server/repositories/attempts");
   classSummary = await import("@/server/student/class-summary");
 }, 120_000);
@@ -678,6 +680,56 @@ describe("millionaire game", () => {
     });
     expect(restarted.attemptId).not.toBe(started.attemptId);
     expect((await prisma.attempt.findUniqueOrThrow({ where: { id: started.attemptId } })).gameStatus).toBe("ENDED");
+  });
+});
+
+describe("millionaire game start errors", () => {
+  it("rejects a lesson that is not ready", async () => {
+    const { lesson } = await createLessonFixture();
+    await prisma.lesson.update({ where: { id: lesson.id }, data: { status: "GENERATING" } });
+
+    await expect(
+      game.startGame({
+        lessonId: lesson.id,
+        studentName: "Maria",
+        normalizedStudentName: "maria",
+        studentSchool: "Test School",
+        locale: "el",
+      }),
+    ).rejects.toMatchObject({ code: "not_ready" });
+  });
+
+  it("rejects a ready lesson with no game questions", async () => {
+    const { lesson } = await createLessonFixture();
+    await prisma.question.deleteMany({ where: { lessonId: lesson.id, mode: "GAME" } });
+
+    await expect(
+      game.startGame({
+        lessonId: lesson.id,
+        studentName: "Maria",
+        normalizedStudentName: "maria",
+        studentSchool: "Test School",
+        locale: "el",
+      }),
+    ).rejects.toMatchObject({ code: "no_game" });
+  });
+
+  it("requires a matching student session on the start route", async () => {
+    const { lesson } = await createLessonFixture();
+    const link = await share.createShareLink({ lessonId: lesson.id });
+
+    const response = await gameStartRoute.POST(
+      new Request(`http://localhost:3000/api/s/${link.token}/lessons/${lesson.id}/game/start`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ locale: "el" }),
+      }),
+      { params: Promise.resolve({ token: link.token, lessonId: lesson.id }) },
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: { code: "unauthorized" } });
+    expect(await prisma.attempt.count({ where: { lessonId: lesson.id, mode: "GAME" } })).toBe(0);
   });
 });
 

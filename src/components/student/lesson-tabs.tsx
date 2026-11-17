@@ -40,10 +40,16 @@ export function LessonTabs({
   const tabOrder: Tab[] = ["pdf", "cards", "game", "quiz"];
   const firstAvailable = tabOrder.find((tab) => available[tab]) ?? "cards";
   const [active, setActive] = useState<Tab>(requested && available[requested] ? requested : firstAvailable);
+  const requestedActiveTab = requested && available[requested] ? requested : null;
+  const activeAvailable = available[active];
 
   useEffect(() => {
-    if (requested && available[requested]) setActive(requested);
-  }, [requested, available]);
+    if (requestedActiveTab) {
+      setActive(requestedActiveTab);
+      return;
+    }
+    if (!activeAvailable) setActive(firstAvailable);
+  }, [requestedActiveTab, activeAvailable, firstAvailable]);
 
   function select(tab: Tab) {
     setActive(tab);
