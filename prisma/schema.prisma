@@ -65,6 +65,7 @@ enum ResourceSource {
   TEXT
   ANNOTATION
   QR
+  AI
 }
 
 model Class {
@@ -93,6 +94,10 @@ model Lesson {
   sizeBytes        Int
   pageCount        Int?
   sourceLocale     String        @default("el")
+  topics           Json?
+  topicsEdited     Boolean       @default(false)
+  rubric           Json?
+  rubricEdited     Boolean       @default(false)
   status           LessonStatus  @default(QUEUED)
   failureReason    String?
   retakeEnabled    Boolean       @default(false)

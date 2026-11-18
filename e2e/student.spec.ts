@@ -241,7 +241,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   // Teacher results dashboards
   await page.goto(`/el/admin/lessons/${lessonId}/results`);
-  await expect(page.getByText(`Μαθήτρια ${suffix}`)).toBeVisible();
+  await expect(page.getByText(`Μαθήτρια ${suffix}`).first()).toBeVisible();
   await expect(page.getByText("1ο Γυμνάσιο").first()).toBeVisible();
   await expect(page.getByText("Ανά ερώτηση")).toBeVisible();
   const csv = await page.request.get(`/api/admin/lessons/${lessonId}/results/export`);
@@ -252,7 +252,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
 
   await page.goto(`/el/admin/classes/${classId}/results`);
   await expect(page.getByText("Σύνοψη τάξης")).toBeVisible();
-  await expect(page.getByText(`Μαθήτρια ${suffix}`)).toBeVisible();
+  await expect(page.getByText(`Μαθήτρια ${suffix}`).first()).toBeVisible();
 
   // Teacher cleanup (the teacher session from the start of the test is still valid)
   await page.goto("/el/admin");

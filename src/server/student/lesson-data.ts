@@ -2,6 +2,7 @@ import type { Prisma, QuestionType, ResourceKind } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getStorage } from "@/server/storage";
 import type { Locale } from "@/lib/locale";
+import { parseLessonRubric, type LessonRubric } from "@/lib/rubric";
 import { getLessonQuestionnaireSummary, type ClassSummary } from "./class-summary";
 
 export type StudentOption = { id: string; text: string };
@@ -15,6 +16,13 @@ export type StudentResource = {
   url: string;
   youtubeId: string | null;
   sourcePage: number | null;
+};
+export type StudentRubricCriterion = { id: string; title: string; description: string };
+export type StudentRubricLevel = { id: string; label: string; description: string };
+export type StudentRubric = {
+  criteria: StudentRubricCriterion[];
+  levels: StudentRubricLevel[];
+  fallback: boolean;
 };
 export type StudentFeedback = {
   questionId: string;
@@ -67,6 +75,34 @@ export function toStudentQuestion(
 const questionInclude = {
   translations: true,
 } satisfies Prisma.QuestionInclude;
+
+function localizeRubric(
+  rubric: LessonRubric | null,
+  locale: string,
+  primary: string,
+): StudentRubric | null {
+  if (!rubric) return null;
+  let fallback = false;
+  const text = (value: { el: string; en: string }): string => {
+    const selected = value[locale as "el" | "en"];
+    if (selected) return selected;
+    fallback = true;
+    return value[primary as "el" | "en"] ?? value.el;
+  };
+  return {
+    criteria: rubric.criteria.map((criterion) => ({
+      id: criterion.id,
+      title: text(criterion.title),
+      description: text(criterion.description),
+    })),
+    levels: rubric.levels.map((level) => ({
+      id: level.id,
+      label: text(level.label),
+      description: text(level.description),
+    })),
+    fallback,
+  };
+}
 
 export async function loadLessonForStudent(input: {
   lessonId: string;
@@ -154,6 +190,8 @@ export async function loadLessonForStudent(input: {
       }
     : null;
 
+  const rubric = localizeRubric(parseLessonRubric(lesson.rubric), input.locale, primary);
+
   const resources: StudentResource[] = lesson.resources.map((resource) => ({
     id: resource.id,
     kind: resource.kind,
@@ -209,6 +247,7 @@ export async function loadLessonForStudent(input: {
     questionnaire,
     game,
     resources,
+    rubric,
     sourceDocument,
     existingResult,
     draftAnswers: (lesson.drafts[0]?.answers as Record<string, string> | undefined) ?? {},

@@ -122,12 +122,12 @@ The system SHALL require a non-empty school name before a student starts a lesso
 
 ### Requirement: Lesson tabs
 
-The system SHALL present the lesson as tabs for the source PDF, Cards, Resources, Game, and Questionnaire in that order, SHALL select the PDF tab when the lesson opens, and SHALL show only modes that have published content, at least one approved resource, or a retrievable source document.
+The system SHALL present the lesson as tabs for the source PDF, Cards, Resources, Game, Questionnaire, and Rubric in that order, SHALL select the PDF tab when the lesson opens, and SHALL show only modes that have published content, at least one approved resource, a retrievable source document, or a rubric.
 
 #### Scenario: Available modes
 
-- **WHEN** a published lesson has cards, approved resources, game, and questionnaire content
-- **THEN** the PDF, Cards, Resources, Game, and Questionnaire tabs are usable and no separate Video tab is offered
+- **WHEN** a published lesson has cards, approved resources, game, questionnaire content, and a rubric
+- **THEN** the PDF, Cards, Resources, Game, Questionnaire, and Rubric tabs are usable and no separate Video tab is offered
 
 #### Scenario: Resources follow Cards
 
@@ -151,8 +151,24 @@ The system SHALL present the lesson as tabs for the source PDF, Cards, Resources
 
 #### Scenario: Direct tab link
 
-- **WHEN** a student opens a URL that targets a specific tab, including the Resources tab
+- **WHEN** a student opens a URL that targets a specific tab, including the Resources tab or the Rubric tab
 - **THEN** that tab opens after name entry without returning to the first tab
+
+#### Scenario: Rubric follows Questionnaire
+
+- **WHEN** a lesson offers both Questionnaire and Rubric tabs
+- **THEN** the Rubric tab appears immediately after Questionnaire
+
+#### Scenario: No rubric
+
+- **WHEN** a lesson has no rubric criteria or performance levels
+- **THEN** the Rubric tab is not offered
+
+#### Scenario: Rubric without questionnaire
+
+- **WHEN** a lesson has a rubric but no questionnaire content
+- **THEN** the Rubric tab is still offered and appears after the last available content tab
+
 ### Requirement: Locale selection and persistence
 
 The system SHALL let students switch between Greek and English and SHALL persist the choice across tabs and return visits.

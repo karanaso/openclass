@@ -260,6 +260,27 @@ describe("resource service and admin routes", () => {
     expect(await prisma.lessonResource.findUnique({ where: { id: approved.resource.id } })).toBeNull();
   });
 
+  it("returns created suggestion views including AI sources", async () => {
+    const lesson = await createLesson();
+    const result = await resourcesService.createSuggestedResources(lesson.id, [
+      {
+        url: "https://example.com/ai-suggestion",
+        title: "AI resource",
+        description: "Suggested for review",
+        source: "AI",
+      },
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.resources).toHaveLength(1);
+    expect(result.resources[0]).toMatchObject({
+      source: "AI",
+      status: "SUGGESTED",
+      title: "AI resource",
+      description: "Suggested for review",
+    });
+  });
+
   it("runs discovery insertion twice without duplicates and preserves review state", async () => {
     const lesson = await createLesson();
     const candidates = [

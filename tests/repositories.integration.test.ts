@@ -44,6 +44,8 @@ const artifacts: GeneratedArtifacts = {
     },
   ],
   game: [],
+  topics: null,
+  rubric: null,
 };
 
 beforeAll(async () => {

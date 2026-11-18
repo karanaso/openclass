@@ -108,6 +108,12 @@ describe("generation orchestration", () => {
       result.artifacts.questionnaire.length,
     );
     expect(await prisma.question.count({ where: { lessonId: lesson.id, mode: "GAME" } })).toBe(result.artifacts.game.length);
+    expect(updated.topics).toMatchObject({ el: expect.any(Array), en: expect.any(Array) });
+    expect((updated.topics as { el: string[] }).el.length).toBeGreaterThan(0);
+    expect(updated.topicsEdited).toBe(false);
+    expect(updated.rubric).toMatchObject({ criteria: expect.any(Array), levels: expect.any(Array) });
+    expect((updated.rubric as { criteria: unknown[] }).criteria.length).toBeGreaterThanOrEqual(3);
+    expect(updated.rubricEdited).toBe(false);
 
     const job = await prisma.generationJob.findUniqueOrThrow({
       where: { lessonId_stage: { lessonId: lesson.id, stage: "GENERATE" } },
@@ -121,6 +127,134 @@ describe("generation orchestration", () => {
     const classUsage = await usageService.getClassUsage(classroom.id);
     expect(classUsage.tokens).toBe(lessonUsage.tokens);
     expect(classUsage.estimatedCostUsd).toBeCloseTo(job.estimatedCostUsd, 8);
+  });
+
+  it("publishes content when topic generation fails", async () => {
+    const { lesson } = await createLessonWithPages();
+    const base = new mockModule.MockContentProvider();
+    const failingTopics = {
+      cards: base.cards.bind(base),
+      questions: base.questions.bind(base),
+      topics: async () => {
+        throw new Error("topics are down");
+      },
+      suggestResources: base.suggestResources.bind(base),
+      rubric: base.rubric.bind(base),
+    };
+
+    const result = await orchestrator.generateLessonContent(lesson.id, {
+      provider: failingTopics,
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+
+    const updated = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(result.artifacts.cards.length).toBeGreaterThanOrEqual(2);
+    expect(updated.status).toBe("READY");
+    expect(updated.topics).toBeNull();
+  });
+
+  it("publishes content when rubric generation fails", async () => {
+    const { lesson } = await createLessonWithPages();
+    const base = new mockModule.MockContentProvider();
+    const failingRubric = {
+      cards: base.cards.bind(base),
+      questions: base.questions.bind(base),
+      topics: base.topics.bind(base),
+      suggestResources: base.suggestResources.bind(base),
+      rubric: async () => {
+        throw new Error("rubric is down");
+      },
+    };
+
+    const result = await orchestrator.generateLessonContent(lesson.id, {
+      provider: failingRubric,
+      maxAttempts: 1,
+      retryDelayMs: 0,
+    });
+
+    const updated = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(result.artifacts.cards.length).toBeGreaterThanOrEqual(2);
+    expect(updated.status).toBe("READY");
+    expect(updated.rubric).toBeNull();
+  });
+
+  it("preserves an edited rubric and refreshes an untouched generated rubric", async () => {
+    const { lesson } = await createLessonWithPages();
+    const base = new mockModule.MockContentProvider();
+    await orchestrator.generateLessonContent(lesson.id, { provider: base, retryDelayMs: 0 });
+
+    const oldRubric = {
+      criteria: [
+        { id: "old-c1", title: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+        { id: "old-c2", title: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+        { id: "old-c3", title: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+      ],
+      levels: [
+        { id: "old-l1", label: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+        { id: "old-l2", label: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+        { id: "old-l3", label: { el: "Παλιό", en: "Old" }, description: { el: "Παλιό", en: "Old" } },
+      ],
+    };
+    await prisma.lesson.update({ where: { id: lesson.id }, data: { rubric: oldRubric } });
+    await orchestrator.generateLessonContent(lesson.id, { provider: base, retryDelayMs: 0 });
+    const refreshed = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect((refreshed.rubric as { criteria: Array<{ id: string }> }).criteria.map((item) => item.id)).not.toContain("old-c1");
+
+    await prisma.lesson.update({
+      where: { id: lesson.id },
+      data: { rubric: oldRubric, rubricEdited: true },
+    });
+    let rubricCalls = 0;
+    const tracking = {
+      cards: base.cards.bind(base),
+      questions: base.questions.bind(base),
+      topics: base.topics.bind(base),
+      suggestResources: base.suggestResources.bind(base),
+      rubric: async (input: Parameters<typeof base.rubric>[0]) => {
+        rubricCalls += 1;
+        return base.rubric(input);
+      },
+    };
+    await orchestrator.generateLessonContent(lesson.id, { provider: tracking, retryDelayMs: 0 });
+    const preserved = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(preserved.rubric).toEqual(oldRubric);
+    expect(rubricCalls).toBe(0);
+  });
+
+  it("preserves manually edited topics and replaces untouched generated topics", async () => {
+    const { lesson } = await createLessonWithPages();
+    const base = new mockModule.MockContentProvider();
+    await orchestrator.generateLessonContent(lesson.id, { provider: base, retryDelayMs: 0 });
+
+    await prisma.lesson.update({
+      where: { id: lesson.id },
+      data: { topics: { el: ["Παλιό θέμα"], en: ["Old topic"] } },
+    });
+    await orchestrator.generateLessonContent(lesson.id, { provider: base, retryDelayMs: 0 });
+    const refreshed = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect((refreshed.topics as { el: string[] }).el).not.toContain("Παλιό θέμα");
+
+    const manual = { el: ["Χειροκίνητο"], en: ["Manual"] };
+    await prisma.lesson.update({
+      where: { id: lesson.id },
+      data: { topics: manual, topicsEdited: true },
+    });
+    let topicCalls = 0;
+    const tracking = {
+      cards: base.cards.bind(base),
+      questions: base.questions.bind(base),
+      topics: async (input: Parameters<typeof base.topics>[0]) => {
+        topicCalls += 1;
+        return base.topics(input);
+      },
+      suggestResources: base.suggestResources.bind(base),
+      rubric: base.rubric.bind(base),
+    };
+    await orchestrator.generateLessonContent(lesson.id, { provider: tracking, retryDelayMs: 0 });
+    const preserved = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(preserved.topics).toEqual(manual);
+    expect(topicCalls).toBe(0);
   });
 
   it("replaces published artifacts on regeneration", async () => {
@@ -156,6 +290,9 @@ describe("generation orchestration", () => {
         return base.cards(input);
       },
       questions: base.questions.bind(base),
+      topics: base.topics.bind(base),
+      suggestResources: base.suggestResources.bind(base),
+      rubric: base.rubric.bind(base),
     };
 
     const result = await orchestrator.generateLessonContent(lesson.id, {
@@ -184,6 +321,15 @@ describe("generation orchestration", () => {
         throw new Error("provider is down");
       },
       questions: async () => {
+        throw new Error("provider is down");
+      },
+      topics: async () => {
+        throw new Error("provider is down");
+      },
+      suggestResources: async () => {
+        throw new Error("provider is down");
+      },
+      rubric: async () => {
         throw new Error("provider is down");
       },
     };

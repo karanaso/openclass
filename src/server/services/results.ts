@@ -24,17 +24,32 @@ export type QuestionStats = {
   options: Array<{ id: string; text: string; count: number }>;
 };
 
+export type ScoreBand = { band: string; count: number };
+export type ModeStat = { mode: AttemptMode; count: number; average: number | null };
+export type StudentStat = {
+  normalizedName: string;
+  name: string;
+  attempts: number;
+  best: number;
+  average: number;
+  latestAt: string;
+};
+
 export type LessonResults = {
   lesson: { id: string; title: string; classId: string; passThreshold: number };
   attempts: AttemptRow[];
   stats: {
     count: number;
+    uniqueStudents: number;
     average: number | null;
     median: number | null;
     passRate: number | null;
     questionnaireCount: number;
     gameCount: number;
   };
+  scoreDistribution: ScoreBand[];
+  modeStats: ModeStat[];
+  students: StudentStat[];
   questions: QuestionStats[];
   deckViews: number;
 };
@@ -87,6 +102,65 @@ export async function getLessonResults(lessonId: string, db: PrismaClient = defa
   const percentages = attempts.map((attempt) => attempt.percentage);
   const questionnaireAttempts = lesson.attempts.filter((attempt) => attempt.mode === "QUESTIONNAIRE");
   const gameAttempts = lesson.attempts.filter((attempt) => attempt.mode === "GAME");
+  const averageOf = (values: number[]) =>
+    values.length === 0 ? null : Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+
+  const bands = [
+    { band: "0-20", min: 0, max: 20 },
+    { band: "21-40", min: 21, max: 40 },
+    { band: "41-60", min: 41, max: 60 },
+    { band: "61-80", min: 61, max: 80 },
+    { band: "81-100", min: 81, max: 100 },
+  ];
+  const scoreDistribution = bands.map((band) => ({
+    band: band.band,
+    count: percentages.filter((percentage) => percentage >= band.min && percentage <= band.max).length,
+  }));
+
+  const modeStats: ModeStat[] = [
+    {
+      mode: "QUESTIONNAIRE",
+      count: questionnaireAttempts.length,
+      average: averageOf(questionnaireAttempts.map((attempt) => attempt.percentage)),
+    },
+    {
+      mode: "GAME",
+      count: gameAttempts.length,
+      average: averageOf(gameAttempts.map((attempt) => attempt.percentage)),
+    },
+  ];
+
+  const studentMap = new Map<
+    string,
+    { name: string; percentages: number[]; latest: string }
+  >();
+  for (const attempt of lesson.attempts) {
+    const completedAt = (attempt.completedAt ?? attempt.createdAt).toISOString();
+    const existing = studentMap.get(attempt.normalizedStudentName);
+    if (existing) {
+      existing.percentages.push(attempt.percentage);
+      if (completedAt > existing.latest) {
+        existing.latest = completedAt;
+        existing.name = attempt.studentName;
+      }
+    } else {
+      studentMap.set(attempt.normalizedStudentName, {
+        name: attempt.studentName,
+        percentages: [attempt.percentage],
+        latest: completedAt,
+      });
+    }
+  }
+  const students: StudentStat[] = [...studentMap.entries()]
+    .map(([normalizedName, value]) => ({
+      normalizedName,
+      name: value.name,
+      attempts: value.percentages.length,
+      best: Math.max(...value.percentages),
+      average: averageOf(value.percentages) ?? 0,
+      latestAt: value.latest,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const questions: QuestionStats[] = lesson.questions.map((question) => {
     const translation =
@@ -121,13 +195,17 @@ export async function getLessonResults(lessonId: string, db: PrismaClient = defa
     attempts,
     stats: {
       count: attempts.length,
-      average: attempts.length === 0 ? null : Math.round(percentages.reduce((sum, value) => sum + value, 0) / attempts.length),
+      uniqueStudents: studentMap.size,
+      average: averageOf(percentages),
       median: median(percentages),
       passRate:
         attempts.length === 0 ? null : Math.round((attempts.filter((attempt) => attempt.passed).length / attempts.length) * 100),
       questionnaireCount: questionnaireAttempts.length,
       gameCount: gameAttempts.length,
     },
+    scoreDistribution,
+    modeStats,
+    students,
     questions,
     deckViews: lesson.deckViews.length,
   };

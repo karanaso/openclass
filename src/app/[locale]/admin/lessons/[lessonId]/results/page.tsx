@@ -29,6 +29,8 @@ export default async function LessonResultsPage({
     notFound();
   }
 
+  const hasAttempts = results.attempts.length > 0;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -51,24 +53,87 @@ export default async function LessonResultsPage({
         </a>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {[
-          { label: t("attempts"), value: results.stats.count },
-          { label: t("average"), value: results.stats.average === null ? "—" : `${results.stats.average}%` },
-          { label: t("median"), value: results.stats.median === null ? "—" : `${results.stats.median}%` },
-          { label: t("passRate"), value: results.stats.passRate === null ? "—" : `${results.stats.passRate}%` },
-          { label: t("deckViews"), value: results.deckViews },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium uppercase text-muted-foreground">{item.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-black">{item.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {hasAttempts ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: t("attempts"), value: results.stats.count },
+              { label: t("uniqueStudents"), value: results.stats.uniqueStudents },
+              { label: t("average"), value: results.stats.average === null ? "—" : `${results.stats.average}%` },
+              { label: t("median"), value: results.stats.median === null ? "—" : `${results.stats.median}%` },
+              { label: t("passRate"), value: results.stats.passRate === null ? "—" : `${results.stats.passRate}%` },
+              { label: t("modeQuestionnaire"), value: results.stats.questionnaireCount },
+              { label: t("modeGame"), value: results.stats.gameCount },
+              { label: t("deckViews"), value: results.deckViews },
+            ].map((item) => (
+              <Card key={item.label}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium uppercase text-muted-foreground">{item.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-black">{item.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("scoreDistribution")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {results.scoreDistribution.map((band) => {
+                  const max = Math.max(1, ...results.scoreDistribution.map((item) => item.count));
+                  return (
+                    <div key={band.band} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium">{band.band}%</span>
+                        <span className="text-muted-foreground">{band.count}</span>
+                      </div>
+                      <div className="h-2 rounded bg-secondary">
+                        <div className="h-2 rounded bg-primary" style={{ width: `${Math.round((band.count / max) * 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("perStudent")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="py-2 pr-3">{t("student")}</th>
+                        <th className="py-2 pr-3">{t("attempts")}</th>
+                        <th className="py-2 pr-3">{t("bestScore")}</th>
+                        <th className="py-2 pr-3">{t("average")}</th>
+                        <th className="py-2 pr-3">{t("lastCompleted")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.students.map((student) => (
+                        <tr key={student.normalizedName} className="border-b last:border-0">
+                          <td className="py-2 pr-3 font-medium">{student.name}</td>
+                          <td className="py-2 pr-3">{student.attempts}</td>
+                          <td className="py-2 pr-3">{student.best}%</td>
+                          <td className="py-2 pr-3">{student.average}%</td>
+                          <td className="py-2 pr-3">{formatDate(student.latestAt, locale as Locale)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      ) : null}
 
       <Card>
         <CardHeader>

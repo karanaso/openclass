@@ -1,5 +1,13 @@
-import type { GenerationInput, ContentProvider, ProviderResult } from "./provider";
-import type { RawCard, RawQuestion } from "./schemas";
+import { TOPIC_MAX } from "@/lib/topics";
+import type {
+  ContentProvider,
+  GenerationInput,
+  LessonContextInput,
+  ProviderResult,
+  ResourceSuggestionInput,
+  RubricInput,
+} from "./provider";
+import type { PromptPage, RawCard, RawQuestion, RawResourceSuggestion, RawRubric, RawTopics } from "./schemas";
 
 type Sentence = { pageNumber: number; text: string };
 
@@ -15,13 +23,21 @@ function collectSentences(pages: { pageNumber: number; text: string }[]): Senten
   return pages.map((page) => ({ pageNumber: page.pageNumber, text: page.text.slice(0, 300) || `Page ${page.pageNumber}` }));
 }
 
-function usage(input: GenerationInput, output: unknown) {
-  const inputChars = input.pages.reduce((sum, page) => sum + page.text.length, 0);
+function usage(pages: PromptPage[], output: unknown) {
+  const inputChars = pages.reduce((sum, page) => sum + page.text.length, 0);
   return {
     model: "mock-content-v1",
     inputTokens: Math.ceil(inputChars / 4),
     outputTokens: Math.ceil(JSON.stringify(output).length / 4),
   };
+}
+
+function topicFromSentence(text: string): string {
+  return text
+    .replace(/[.!?;:]+.*$/su, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, TOPIC_MAX);
 }
 
 function unique(prompt: string, index: number, used: Set<string>): string {
@@ -51,7 +67,7 @@ export class MockContentProvider implements ContentProvider {
         answer: { el: sentence.text, en: sentence.text },
       };
     });
-    return { items: cards, usage: usage(input, cards) };
+    return { items: cards, usage: usage(input.pages, cards) };
   }
 
   async questions(input: GenerationInput, mode: "questionnaire" | "game"): Promise<ProviderResult<RawQuestion[]>> {
@@ -129,6 +145,107 @@ export class MockContentProvider implements ContentProvider {
         },
       };
     });
-    return { items: questions, usage: usage(input, questions) };
+    return { items: questions, usage: usage(input.pages, questions) };
+  }
+
+  async topics(input: LessonContextInput): Promise<ProviderResult<RawTopics>> {
+    const sentences = collectSentences(input.pages);
+    const seen = new Set<string>();
+    const topics: string[] = [];
+
+    for (const sentence of sentences) {
+      const topic = topicFromSentence(sentence.text);
+      if (!topic || seen.has(topic.toLocaleLowerCase("el"))) continue;
+      seen.add(topic.toLocaleLowerCase("el"));
+      topics.push(topic);
+      if (topics.length >= 4) break;
+    }
+
+    const items: RawTopics = { el: [...topics], en: [...topics] };
+    return { items, usage: usage(input.pages, items) };
+  }
+
+  async suggestResources(input: ResourceSuggestionInput): Promise<ProviderResult<RawResourceSuggestion[]>> {
+    const topic = input.topics.en[0] ?? input.topics.el[0] ?? input.title;
+    const items: RawResourceSuggestion[] = [
+      {
+        title: `${topic}: video overview`.slice(0, 200),
+        description: `A mock video suggestion for ${topic}. Verify it before approving.`,
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      },
+      {
+        title: `${topic}: interactive game`.slice(0, 200),
+        description: `A mock game suggestion for ${topic}. Verify it before approving.`,
+        url: "https://example.com/educational-game",
+      },
+    ].slice(0, Math.max(0, input.limit));
+
+    return { items, usage: usage(input.pages, items) };
+  }
+
+  async rubric(input: RubricInput): Promise<ProviderResult<RawRubric>> {
+    const items: RawRubric = {
+      criteria: [
+        {
+          id: "criterion-understanding",
+          title: { el: "Κατανόηση βασικών εννοιών", en: "Understanding key concepts" },
+          description: {
+            el: "Ο μαθητής εξηγεί σωστά τις βασικές έννοιες του μαθήματος.",
+            en: "The student correctly explains the lesson's key concepts.",
+          },
+        },
+        {
+          id: "criterion-application",
+          title: { el: "Εφαρμογή γνώσης", en: "Applying knowledge" },
+          description: {
+            el: "Ο μαθητής χρησιμοποιεί τις γνώσεις του για να απαντήσει σε νέες ερωτήσεις.",
+            en: "The student uses the lesson knowledge to answer new questions.",
+          },
+        },
+        {
+          id: "criterion-accuracy",
+          title: { el: "Ακρίβεια και τεκμηρίωση", en: "Accuracy and justification" },
+          description: {
+            el: "Ο μαθητής απαντά με ακρίβεια και στηρίζει τις απαντήσεις του στο κείμενο.",
+            en: "The student answers accurately and supports answers with the lesson text.",
+          },
+        },
+      ],
+      levels: [
+        {
+          id: "level-excellent",
+          label: { el: "Εξαιρετικό", en: "Excellent" },
+          description: {
+            el: "Η κατανόηση και η εφαρμογή είναι σταθερές και ακριβείς.",
+            en: "Understanding and application are consistent and accurate.",
+          },
+        },
+        {
+          id: "level-good",
+          label: { el: "Καλό", en: "Good" },
+          description: {
+            el: "Οι βασικές ιδέες είναι κατανοητές με μικρά κενά.",
+            en: "The main ideas are understood with minor gaps.",
+          },
+        },
+        {
+          id: "level-developing",
+          label: { el: "Υπό ανάπτυξη", en: "Developing" },
+          description: {
+            el: "Ορισμένες βασικές ιδέες χρειάζονται περισσότερη εξάσκηση.",
+            en: "Some key ideas need further practice.",
+          },
+        },
+        {
+          id: "level-support",
+          label: { el: "Χρειάζεται υποστήριξη", en: "Needs support" },
+          description: {
+            el: "Απαιτείται επανάληψη των βασικών εννοιών με καθοδήγηση.",
+            en: "The key concepts need guided review.",
+          },
+        },
+      ],
+    };
+    return { items, usage: usage(input.pages, items) };
   }
 }

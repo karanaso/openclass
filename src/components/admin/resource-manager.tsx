@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Save, X } from "lucide-react";
+import { Pencil, Plus, Save, Sparkles, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
@@ -45,6 +45,9 @@ export function ResourceManager({
   );
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionMessage, setSuggestionMessage] = useState<string | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
   const parsed = url.trim() ? parseResourceUrl(url) : null;
   const detectedKind = parsed?.ok ? parsed.value.kind : null;
@@ -201,6 +204,52 @@ export function ResourceManager({
     }
   }
 
+  async function suggest() {
+    setSuggesting(true);
+    setSuggestionMessage(null);
+    setSuggestionError(null);
+    try {
+      const response = await fetch(`/api/admin/lessons/${lessonId}/resource-suggestions`, {
+        method: "POST",
+      });
+      const data = (await response.json().catch(() => null)) as {
+        created?: number;
+        resources?: LessonResourceView[];
+        error?: { code?: string };
+      } | null;
+
+      if (!response.ok) {
+        setSuggestionError(
+          data?.error?.code === "resource_limit_reached"
+            ? t("suggestionLimitReached")
+            : t("suggestionFailed"),
+        );
+        return;
+      }
+
+      const added = data?.resources ?? [];
+      if (added.length === 0) {
+        setSuggestionMessage(t("noSuggestions"));
+        return;
+      }
+
+      setResources((current) => {
+        const existingIds = new Set(current.map((resource) => resource.id));
+        return [...current, ...added.filter((resource) => !existingIds.has(resource.id))];
+      });
+      setDrafts((current) => ({
+        ...current,
+        ...Object.fromEntries(added.map((resource) => [resource.id, draftFor(resource)])),
+      }));
+      setSuggestionMessage(t("suggestionAdded", { count: added.length }));
+      router.refresh();
+    } catch {
+      setSuggestionError(t("suggestionFailed"));
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   const suggestions = resources.filter((resource) => resource.status === "SUGGESTED");
   const approved = resources.filter((resource) => resource.status === "APPROVED");
 
@@ -215,7 +264,9 @@ export function ResourceManager({
           ? "sourceText"
           : resource.source === "ANNOTATION"
             ? "sourceAnnotation"
-            : "sourceQr";
+            : resource.source === "QR"
+              ? "sourceQr"
+              : "sourceAi";
 
     return (
       <div
@@ -243,6 +294,11 @@ export function ResourceManager({
               {resource.status === "SUGGESTED" ? (
                 <span className="rounded-full bg-secondary px-2 py-0.5 font-semibold">
                   {t("resourceSuggested")}
+                </span>
+              ) : null}
+              {resource.source === "AI" ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-900">
+                  {t("aiUnverified")}
                 </span>
               ) : null}
             </div>
@@ -359,10 +415,26 @@ export function ResourceManager({
   return (
     <Card data-testid="resource-manager">
       <CardHeader>
-        <CardTitle className="text-base">{t("resourcesTitle")}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t("resourcesHint")}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">{t("resourcesTitle")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("resourcesHint")}</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={suggest}
+            disabled={suggesting}
+            data-testid="suggest-resources"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden />
+            {suggesting ? t("suggestingResources") : t("suggestResources")}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        {suggestionMessage ? <p className="text-sm text-primary">{suggestionMessage}</p> : null}
+        {suggestionError ? <Alert variant="error">{suggestionError}</Alert> : null}
         <form className="space-y-3 rounded-xl border p-4" onSubmit={create}>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">

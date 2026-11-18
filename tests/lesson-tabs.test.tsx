@@ -43,6 +43,10 @@ vi.mock("@/components/student/questionnaire", () => ({
   Questionnaire: () => <div data-testid="quiz-mock" />,
 }));
 
+vi.mock("@/components/student/lesson-rubric", () => ({
+  LessonRubric: () => <div data-testid="lesson-rubric-mock" />,
+}));
+
 function data(
   sourceDocument: StudentLessonData["sourceDocument"],
   resources: StudentLessonData["resources"] = [],
@@ -62,6 +66,7 @@ function data(
     questionnaire: [],
     game: [],
     resources,
+    rubric: null,
     sourceDocument,
     existingResult: null,
     draftAnswers: {},
@@ -178,6 +183,38 @@ describe("lesson tabs", () => {
 
     expect(screen.getByTestId("tab-resources")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("lesson-resources-mock")).toBeInTheDocument();
+  });
+
+  it("places the Rubric tab after Quiz and opens it directly", () => {
+    const question: StudentLessonData["questionnaire"][number] = {
+      id: "q1",
+      type: "TRUE_FALSE",
+      prompt: "Question one",
+      options: [],
+    };
+    const rubric: NonNullable<StudentLessonData["rubric"]> = {
+      criteria: [{ id: "c1", title: "Criterion", description: "Description" }],
+      levels: [{ id: "l1", label: "Level", description: "Description" }],
+      fallback: false,
+    };
+    state.params = new URLSearchParams("tab=rubric");
+    render(
+      <LessonTabs
+        token="token"
+        studentName="Maria"
+        data={{ ...data(null), questionnaire: [question], rubric }}
+      />,
+    );
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.getAttribute("data-testid"))).toEqual(["tab-cards", "tab-quiz", "tab-rubric"]);
+    expect(screen.getByTestId("tab-rubric")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("lesson-rubric-mock")).toBeInTheDocument();
+  });
+
+  it("hides the Rubric tab when no rubric exists", () => {
+    render(<LessonTabs token="token" studentName="Maria" data={data(null)} />);
+    expect(screen.queryByTestId("tab-rubric")).not.toBeInTheDocument();
   });
 
   it("falls back to the first available tab when the game disappears after a refresh", () => {

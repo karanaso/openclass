@@ -56,7 +56,8 @@ export const resourceUpdateSchema = z
 export type ResourceCandidate = {
   url: string;
   title?: string | null;
-  source: "TEXT" | "ANNOTATION" | "QR";
+  description?: string | null;
+  source: "TEXT" | "ANNOTATION" | "QR" | "AI";
   sourcePage?: number | null;
 };
 
@@ -64,7 +65,7 @@ export type LessonResourceView = {
   id: string;
   kind: ResourceKind;
   status: "SUGGESTED" | "APPROVED" | "DISMISSED";
-  source: "MANUAL" | "TEXT" | "ANNOTATION" | "QR";
+  source: "MANUAL" | "TEXT" | "ANNOTATION" | "QR" | "AI";
   sourcePage: number | null;
   title: string;
   description: string | null;
@@ -78,7 +79,7 @@ type ResourceRecord = {
   id: string;
   kind: "LINK" | "YOUTUBE";
   status: "SUGGESTED" | "APPROVED" | "DISMISSED";
-  source: "MANUAL" | "TEXT" | "ANNOTATION" | "QR";
+  source: "MANUAL" | "TEXT" | "ANNOTATION" | "QR" | "AI";
   sourcePage: number | null;
   title: string;
   description: string | null;
@@ -264,28 +265,34 @@ export async function deleteResource(
   });
 }
 
+export type CreateSuggestedResourcesResult = {
+  created: number;
+  resources: LessonResourceView[];
+};
+
 export async function createSuggestedResources(
   lessonId: string,
   candidates: ResourceCandidate[],
   db: PrismaClient = defaultPrisma,
-): Promise<{ created: number }> {
-  if (candidates.length === 0) return { created: 0 };
+): Promise<CreateSuggestedResourcesResult> {
+  if (candidates.length === 0) return { created: 0, resources: [] };
 
   return db.$transaction(async (tx) => {
     await assertLessonExists(lessonId, tx);
 
     const existingCount = await tx.lessonResource.count({ where: { lessonId } });
     const remaining = Math.max(0, MAX_RESOURCES_PER_LESSON - existingCount);
-    if (remaining === 0) return { created: 0 };
+    if (remaining === 0) return { created: 0, resources: [] };
 
     const seen = new Set<string>();
     const rows: Array<{
       lessonId: string;
       kind: "LINK" | "YOUTUBE";
       status: "SUGGESTED";
-      source: "TEXT" | "ANNOTATION" | "QR";
+      source: "TEXT" | "ANNOTATION" | "QR" | "AI";
       sourcePage: number | null;
       title: string;
+      description: string | null;
       url: string;
       youtubeId: string | null;
       fingerprint: string;
@@ -310,6 +317,7 @@ export async function createSuggestedResources(
         title:
           (title ? title.slice(0, RESOURCE_TITLE_MAX) : "") ||
           resourceTitleFromUrl(normalized.value.url, normalized.value.kind),
+        description: candidate.description?.trim().slice(0, RESOURCE_DESCRIPTION_MAX) || null,
         url: normalized.value.url,
         youtubeId: normalized.value.youtubeId,
         fingerprint,
@@ -317,7 +325,7 @@ export async function createSuggestedResources(
       });
     }
 
-    if (rows.length === 0) return { created: 0 };
+    if (rows.length === 0) return { created: 0, resources: [] };
 
     const aggregate = await tx.lessonResource.aggregate({
       where: { lessonId },
@@ -330,6 +338,11 @@ export async function createSuggestedResources(
       skipDuplicates: true,
     });
 
-    return { created: result.count };
+    const created = await tx.lessonResource.findMany({
+      where: { lessonId, position: { gte: start } },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    });
+
+    return { created: result.count, resources: created.map(toView) };
   });
 }

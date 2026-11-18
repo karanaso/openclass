@@ -56,6 +56,15 @@ export async function publishArtifacts(
       await tx.question.create({ data: question });
     }
 
-    return tx.lesson.update({ where: { id: lessonId }, data: { status: "READY", readyAt: new Date(), failureReason: null } });
+    return tx.lesson.update({
+      where: { id: lessonId },
+      data: {
+        status: "READY",
+        readyAt: new Date(),
+        failureReason: null,
+        ...(artifacts.topics ? { topics: artifacts.topics } : {}),
+        ...(artifacts.rubric ? { rubric: artifacts.rubric } : {}),
+      },
+    });
   });
 }

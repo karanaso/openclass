@@ -2,10 +2,12 @@ import type { PrismaClient } from "@prisma/client";
 import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { normalizeGeneratedRubric, type LessonRubric } from "@/lib/rubric";
+import { normalizeLessonTopics, parseLessonTopics, type LessonTopics } from "@/lib/topics";
 import { prisma as defaultPrisma } from "@/server/db";
 import { publishArtifacts } from "@/server/repositories/publication";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
-import { chunkPages, PROMPT_VERSION } from "./prompts";
+import { chunkPages, PROMPT_VERSION, selectTopicPages } from "./prompts";
 import { getContentProvider } from "./provider-factory";
 import type { ContentProvider, GenerationInput, ProviderUsage } from "./provider";
 import type { ContentCounts, PromptPage, RawCard, RawQuestion } from "./schemas";
@@ -88,6 +90,20 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
       const questionnaire: RawQuestion[] = [];
       const game: RawQuestion[] = [];
 
+      let topics: LessonTopics | null = null;
+      if (!lesson.topicsEdited) {
+        try {
+          const topicResult = await provider.topics({
+            pages: selectTopicPages(pages),
+            sourceLocale: lesson.sourceLocale as "el" | "en",
+          });
+          topics = normalizeLessonTopics(topicResult.items);
+          usage.push(topicResult.usage);
+        } catch (error) {
+          logger.warn({ lessonId, attempt, err: error }, "topic generation failed");
+        }
+      }
+
       const perChunk: ContentCounts = {
         cards: {
           min: Math.max(1, Math.ceil(counts.cards.min / chunks.length)),
@@ -123,12 +139,31 @@ export async function generateLessonContent(lessonId: string, options: GenerateO
         usage.push(gameResult.usage);
       }
 
+      let rubric: LessonRubric | null = null;
+      if (!lesson.rubricEdited) {
+        try {
+          const rubricResult = await provider.rubric({
+            title: lesson.title,
+            pages: selectTopicPages(pages),
+            sourceLocale: lesson.sourceLocale as "el" | "en",
+            topics: parseLessonTopics(lesson.topics),
+            questions: questionnaire
+              .slice(0, 20)
+              .map((question) => question.prompt[lesson.sourceLocale as "el" | "en"]),
+          });
+          rubric = normalizeGeneratedRubric(rubricResult.items);
+          usage.push(rubricResult.usage);
+        } catch (error) {
+          logger.warn({ lessonId, attempt, err: error }, "rubric generation failed");
+        }
+      }
+
       const raw: RawArtifacts = {
         cards: cards.slice(0, counts.cards.max),
         questionnaire: questionnaire.slice(0, counts.questionnaire.max),
         game: game.slice(0, counts.game.max),
       };
-      const artifacts = validateGeneratedArtifacts(raw, pages, counts);
+      const artifacts = validateGeneratedArtifacts(raw, pages, counts, topics, rubric);
       const cost = estimateCost(usage);
       const inputTokens = usage.reduce((sum, item) => sum + item.inputTokens, 0);
       const outputTokens = usage.reduce((sum, item) => sum + item.outputTokens, 0);

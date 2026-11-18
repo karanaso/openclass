@@ -2,10 +2,29 @@ import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import zodToJsonSchema from "zod-to-json-schema";
 import { detectContentLocale } from "@/lib/locale";
+import { parseResourceUrl } from "@/lib/resources";
 import { extractPdfPages } from "@/server/pdf/extract";
+import type { ContentProvider } from "@/server/generation/provider";
 import { MockContentProvider } from "@/server/generation/mock-provider";
-import { buildPrompt, chunkPages } from "@/server/generation/prompts";
-import { cardsArtifactSchema, questionsArtifactSchema, type ContentCounts, type PromptPage } from "@/server/generation/schemas";
+import {
+  PROMPT_VERSION,
+  buildPrompt,
+  buildResourceSuggestionPrompt,
+  buildRubricPrompt,
+  buildTopicsPrompt,
+  chunkPages,
+  renderPageText,
+  selectTopicPages,
+} from "@/server/generation/prompts";
+import {
+  cardsArtifactSchema,
+  questionsArtifactSchema,
+  resourceSuggestionsArtifactSchema,
+  rubricArtifactSchema,
+  topicsArtifactSchema,
+  type ContentCounts,
+  type PromptPage,
+} from "@/server/generation/schemas";
 import { validateGeneratedArtifacts } from "@/server/generation/validate";
 
 const pages: PromptPage[] = [
@@ -45,6 +64,99 @@ describe("generation schemas", () => {
     };
     expect(cardsArtifactSchema.parse(valid).cards).toHaveLength(1);
     expect(() => cardsArtifactSchema.parse({ cards: [{ itemKey: "c1", sourcePage: 1, prompt: { el: "x" } }] })).toThrow();
+  });
+});
+
+describe("topic and resource suggestion schemas", () => {
+  it("accepts permissive topic lists", () => {
+    expect(
+      topicsArtifactSchema.parse({
+        topics: { el: ["Φωτοσύνθεση", "x".repeat(200)], en: ["Photosynthesis"] },
+      }).topics.el,
+    ).toHaveLength(2);
+  });
+
+  it("rejects a malformed topic payload", () => {
+    expect(() => topicsArtifactSchema.parse({ topics: { el: "not-an-array", en: [] } })).toThrow();
+  });
+
+  it("accepts up to twelve resource suggestions and rejects more", () => {
+    const suggestion = { title: "A video", description: "Why it helps", url: "https://example.com/video" };
+    expect(
+      resourceSuggestionsArtifactSchema.parse({ resources: Array.from({ length: 12 }, () => suggestion) }).resources,
+    ).toHaveLength(12);
+    expect(() =>
+      resourceSuggestionsArtifactSchema.parse({ resources: Array.from({ length: 13 }, () => suggestion) }),
+    ).toThrow();
+  });
+
+  it("allows missing suggestion fields so they can be discarded individually", () => {
+    const parsed = resourceSuggestionsArtifactSchema.parse({
+      resources: [{ title: null, url: null }, { title: "Valid", url: "https://example.com" }],
+    });
+    expect(parsed.resources).toHaveLength(2);
+  });
+});
+
+describe("rubric schema", () => {
+  it("accepts a permissive rubric and rejects a malformed payload", () => {
+    const payload = {
+      criteria: [
+        { id: "c1", title: { el: "Κριτήριο", en: "Criterion" }, description: { el: "Περιγραφή", en: "Description" } },
+      ],
+      levels: [{ id: "l1", label: { el: "Επίπεδο", en: "Level" }, description: { el: "Περιγραφή", en: "Description" } }],
+    };
+    expect(rubricArtifactSchema.parse(payload).criteria).toHaveLength(1);
+    expect(() => rubricArtifactSchema.parse({ criteria: "bad", levels: [] })).toThrow();
+  });
+});
+
+describe("mock provider topics and suggestions", () => {
+  it("produces repeatable bilingual topics and satisfies the provider interface", async () => {
+    const provider: ContentProvider = new MockContentProvider();
+    const first = await provider.topics({ pages, sourceLocale: "en" });
+    const second = await provider.topics({ pages, sourceLocale: "en" });
+    expect(first.items).toEqual(second.items);
+    expect(first.items.el).toEqual(first.items.en);
+    expect(first.items.el.length).toBeGreaterThan(0);
+    expect(first.items.el.every((topic) => topic.length > 0 && topic.length <= 40)).toBe(true);
+  });
+
+  it("produces a deterministic rubric with valid criteria and levels", async () => {
+    const provider = new MockContentProvider();
+    const first = await provider.rubric({
+      pages,
+      sourceLocale: "en",
+      title: "Biology",
+      topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] },
+      questions: ["What does photosynthesis produce?"],
+    });
+    const second = await provider.rubric({
+      pages,
+      sourceLocale: "en",
+      title: "Biology",
+      topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] },
+      questions: ["What does photosynthesis produce?"],
+    });
+    expect(first.items).toEqual(second.items);
+    expect(first.items.criteria.length).toBeGreaterThanOrEqual(3);
+    expect(first.items.levels.length).toBeGreaterThanOrEqual(3);
+    expect(first.items.criteria[0].title).toHaveProperty("el");
+    expect(first.items.levels[0].label).toHaveProperty("en");
+  });
+
+  it("produces parseable game and video suggestions", async () => {
+    const provider = new MockContentProvider();
+    const result = await provider.suggestResources({
+      pages,
+      sourceLocale: "en",
+      title: "Biology",
+      topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] },
+      limit: 8,
+    });
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.items.map((item) => item.url).every((url) => Boolean(url) && parseResourceUrl(url!).ok)).toBe(true);
+    expect(result.items.some((item) => item.url?.includes("youtube"))).toBe(true);
   });
 });
 
@@ -146,7 +258,8 @@ describe("prompt building", () => {
     expect(prompt.user).toContain("3-5");
     expect(prompt.user).toContain("Greek");
     expect(prompt.user).toContain("English");
-    expect(prompt.promptVersion).toBe("v2");
+    expect(prompt.promptVersion).toBe(PROMPT_VERSION);
+    expect(PROMPT_VERSION).toBe("v4");
   });
 
   it("requires exact option counts for game questions", () => {
@@ -154,6 +267,59 @@ describe("prompt building", () => {
     expect(prompt.user).toContain('TRUE_FALSE has exactly two options with ids "a" and "b"');
     expect(prompt.user).toContain('MULTIPLE_CHOICE has exactly four options with ids "a","b","c","d"');
     expect(prompt.user).not.toContain("Prefer four-option");
+  });
+
+  it("builds a bilingual, source-grounded topic prompt", () => {
+    const prompt = buildTopicsPrompt({ pages, sourceLocale: "el" });
+    expect(prompt.user).toContain("Greek (el)");
+    expect(prompt.user).toContain("English (en)");
+    expect(prompt.user).toContain("3-8");
+    expect(prompt.user).toContain("[Page 1]");
+    expect(prompt.system).toContain("Never invent topics");
+    expect(prompt.promptVersion).toBe(PROMPT_VERSION);
+  });
+
+  it("builds a suggestion prompt from the title and topics", () => {
+    const prompt = buildResourceSuggestionPrompt({
+      title: "Photosynthesis",
+      pages,
+      sourceLocale: "en",
+      limit: 8,
+      topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] },
+    });
+    expect(prompt.user).toContain("Photosynthesis");
+    expect(prompt.user).toContain("Φωτοσύνθεση");
+    expect(prompt.user).toContain("up to 8");
+    expect(prompt.user).toContain("[Page 1]");
+    expect(prompt.user).toContain("student data");
+    expect(prompt.system).toContain("Never invent YouTube");
+  });
+
+  it("builds an assessment-aligned bilingual rubric prompt", () => {
+    const prompt = buildRubricPrompt({
+      title: "Photosynthesis",
+      pages,
+      sourceLocale: "en",
+      topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] },
+      questions: ["What does photosynthesis produce?"],
+    });
+    expect(prompt.user).toContain("3-6");
+    expect(prompt.user).toContain("3-4");
+    expect(prompt.user).toContain("What does photosynthesis produce?");
+    expect(prompt.user).toContain("Φωτοσύνθεση");
+    expect(prompt.user).toContain("[Page 1]");
+    expect(prompt.system).toContain("Never include student data");
+    expect(prompt.promptVersion).toBe(PROMPT_VERSION);
+  });
+
+  it("samples topic pages within the character budget without dropping pages", () => {
+    const longPages = Array.from({ length: 40 }, (_, index) => ({
+      pageNumber: index + 1,
+      text: `Page ${index + 1} `.repeat(1000),
+    }));
+    const selected = selectTopicPages(longPages, 5000);
+    expect(selected.map((page) => page.pageNumber)).toEqual(longPages.map((page) => page.pageNumber));
+    expect(renderPageText(selected).length).toBeLessThanOrEqual(5000);
   });
 });
 

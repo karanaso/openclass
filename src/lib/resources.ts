@@ -2,6 +2,7 @@ export const RESOURCE_URL_MAX = 2000;
 export const RESOURCE_TITLE_MAX = 200;
 export const RESOURCE_DESCRIPTION_MAX = 500;
 export const MAX_RESOURCES_PER_LESSON = 50;
+export const MAX_AI_SUGGESTIONS_PER_REQUEST = 8;
 
 export type ResourceKind = "LINK" | "YOUTUBE";
 

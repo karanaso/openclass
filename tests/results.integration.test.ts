@@ -130,6 +130,23 @@ async function seed() {
   ]);
   await createAttempt(lessonB.id, "Maria", "maria", "School C", 70, true, []);
 
+  await prisma.attempt.create({
+    data: {
+      lessonId: lessonA.id,
+      studentName: "Incomplete",
+      normalizedStudentName: "incomplete",
+      studentSchool: "School A",
+      mode: "QUESTIONNAIRE",
+      locale: "en",
+      score: 0,
+      maxScore: 2,
+      percentage: 0,
+      passed: false,
+      durationMs: 0,
+      completedAt: null,
+    },
+  });
+
   await prisma.deckView.create({ data: { lessonId: lessonA.id, normalizedStudentName: "maria" } });
 
   return { classroom, lessonA, lessonB };
@@ -144,6 +161,23 @@ describe("results analytics", () => {
     expect(report.stats.average).toBe(50);
     expect(report.stats.median).toBe(50);
     expect(report.stats.passRate).toBe(33);
+    expect(report.stats.uniqueStudents).toBe(3);
+    expect(report.scoreDistribution).toEqual([
+      { band: "0-20", count: 1 },
+      { band: "21-40", count: 0 },
+      { band: "41-60", count: 1 },
+      { band: "61-80", count: 0 },
+      { band: "81-100", count: 1 },
+    ]);
+    expect(report.modeStats).toEqual([
+      { mode: "QUESTIONNAIRE", count: 3, average: 50 },
+      { mode: "GAME", count: 0, average: null },
+    ]);
+    expect(report.students.find((student) => student.normalizedName === "maria")).toMatchObject({
+      attempts: 1,
+      best: 100,
+      average: 100,
+    });
     expect(report.deckViews).toBe(1);
     expect(report.questions).toHaveLength(2);
     expect(report.questions[0].prompt).toBe("Question 2");
@@ -151,6 +185,42 @@ describe("results analytics", () => {
     expect(report.questions[1].correctRate).toBe(67);
     expect(report.questions[0].options.find((option) => option.id === "a")?.count).toBe(2);
     expect(report.attempts.find((attempt) => attempt.studentName === "Nikos")?.studentSchool).toBe("School B");
+  });
+
+  it("breaks down mixed quiz and game attempts", async () => {
+    const { lessonA } = await seed();
+    await prisma.attempt.create({
+      data: {
+        lessonId: lessonA.id,
+        studentName: "Maria",
+        normalizedStudentName: "maria",
+        studentSchool: "School A",
+        mode: "GAME",
+        locale: "en",
+        score: 8,
+        maxScore: 10,
+        percentage: 80,
+        passed: true,
+        durationMs: 30_000,
+        reachedLevel: 5,
+        gameStatus: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
+
+    const report = await results.getLessonResults(lessonA.id);
+    expect(report.stats.count).toBe(4);
+    expect(report.stats.uniqueStudents).toBe(3);
+    expect(report.modeStats).toEqual([
+      { mode: "QUESTIONNAIRE", count: 3, average: 50 },
+      { mode: "GAME", count: 1, average: 80 },
+    ]);
+    expect(report.scoreDistribution.find((band) => band.band === "61-80")?.count).toBe(1);
+    expect(report.students.find((student) => student.normalizedName === "maria")).toMatchObject({
+      attempts: 2,
+      best: 100,
+      average: 90,
+    });
   });
 
   it("computes class summaries and per-student averages", async () => {

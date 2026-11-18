@@ -1,3 +1,6 @@
+import type { LessonRubric } from "@/lib/rubric";
+import type { LessonTopics } from "@/lib/topics";
+
 export type LocaleText = { el: string; en: string };
 
 export type GeneratedCard = {
@@ -25,4 +28,6 @@ export type GeneratedArtifacts = {
   cards: GeneratedCard[];
   questionnaire: GeneratedQuestion[];
   game: GeneratedQuestion[];
+  topics: LessonTopics | null;
+  rubric: LessonRubric | null;
 };

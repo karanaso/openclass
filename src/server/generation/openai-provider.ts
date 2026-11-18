@@ -2,13 +2,26 @@ import { z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 import { getEnv } from "@/lib/env";
 import { AppError } from "@/lib/errors";
-import { buildPrompt } from "./prompts";
-import type { ContentProvider, GenerationInput, ProviderResult } from "./provider";
+import { buildPrompt, buildResourceSuggestionPrompt, buildRubricPrompt, buildTopicsPrompt } from "./prompts";
+import type {
+  ContentProvider,
+  GenerationInput,
+  LessonContextInput,
+  ProviderResult,
+  ResourceSuggestionInput,
+  RubricInput,
+} from "./provider";
 import {
   cardsArtifactSchema,
   questionsArtifactSchema,
+  resourceSuggestionsArtifactSchema,
+  rubricArtifactSchema,
+  topicsArtifactSchema,
   type RawCard,
   type RawQuestion,
+  type RawResourceSuggestion,
+  type RawRubric,
+  type RawTopics,
 } from "./schemas";
 
 export function strictify(value: unknown): unknown {
@@ -122,6 +135,34 @@ export class OpenAIContentProvider implements ContentProvider {
     );
     return {
       items: result.parsed.questions,
+      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+    };
+  }
+
+  async topics(input: LessonContextInput): Promise<ProviderResult<RawTopics>> {
+    const result = await this.call("lesson_topics", topicsArtifactSchema, buildTopicsPrompt(input));
+    return {
+      items: result.parsed.topics,
+      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+    };
+  }
+
+  async suggestResources(input: ResourceSuggestionInput): Promise<ProviderResult<RawResourceSuggestion[]>> {
+    const result = await this.call(
+      "lesson_resource_suggestions",
+      resourceSuggestionsArtifactSchema,
+      buildResourceSuggestionPrompt(input),
+    );
+    return {
+      items: result.parsed.resources,
+      usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+    };
+  }
+
+  async rubric(input: RubricInput): Promise<ProviderResult<RawRubric>> {
+    const result = await this.call("lesson_rubric", rubricArtifactSchema, buildRubricPrompt(input));
+    return {
+      items: result.parsed,
       usage: { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens },
     };
   }

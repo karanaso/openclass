@@ -9,13 +9,17 @@ import {
 } from "@/components/admin/generated-content-editor";
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonAccessCode } from "@/components/admin/lesson-access-code";
+import { LessonRubricEditor } from "@/components/admin/lesson-rubric-editor";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
+import { LessonTopicsEditor } from "@/components/admin/lesson-topics-editor";
 import { ResourceManager } from "@/components/admin/resource-manager";
 import { ShareLinkManager } from "@/components/admin/share-link-manager";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { Locale } from "@/lib/locale";
+import { parseLessonRubric } from "@/lib/rubric";
+import { parseLessonTopics } from "@/lib/topics";
 import { getLessonDetail } from "@/server/services/classes";
 import { listLessonCards } from "@/server/services/cards";
 import { listLessonQuestions } from "@/server/services/questions";
@@ -165,6 +169,10 @@ export default async function LessonDetailPage({
         questions={questions}
         editable={lesson.status === "READY"}
       />
+
+      <LessonRubricEditor lessonId={lesson.id} initialRubric={parseLessonRubric(lesson.rubric)} />
+
+      <LessonTopicsEditor lessonId={lesson.id} initialTopics={parseLessonTopics(lesson.topics)} />
 
       <ResourceManager lessonId={lesson.id} initialResources={resources} />
 

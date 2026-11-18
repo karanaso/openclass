@@ -181,4 +181,62 @@ describe("resource manager", () => {
 
     expect(await screen.findByText("resourceCreateFailed")).toBeInTheDocument();
   });
+
+  it("requests AI suggestions and merges them with an unverified AI badge", async () => {
+    const aiSuggestion: LessonResourceView = {
+      ...suggested,
+      id: "ai-1",
+      source: "AI",
+      sourcePage: null,
+      title: "AI video",
+      description: "Verify this link",
+    };
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response({ created: 1, resources: [aiSuggestion] }),
+    );
+
+    renderManager();
+
+    fireEvent.click(screen.getByTestId("suggest-resources"));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/admin/lessons/lesson-1/resource-suggestions");
+    expect(init?.method).toBe("POST");
+    expect(await screen.findByText("AI video")).toBeInTheDocument();
+    expect(screen.getByText("suggestionAdded")).toBeInTheDocument();
+    expect(screen.getByText("aiUnverified")).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows a progress state and blocks a second suggestion request", async () => {
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(() => {}));
+    renderManager();
+
+    const button = screen.getByTestId("suggest-resources");
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveTextContent("suggestingResources");
+  });
+
+  it("reports when no suggestions were found", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ created: 0, resources: [] }));
+
+    renderManager();
+    fireEvent.click(screen.getByTestId("suggest-resources"));
+
+    expect(await screen.findByText("noSuggestions")).toBeInTheDocument();
+  });
+
+  it("reports the resource limit when suggestions cannot be added", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response({ error: { code: "resource_limit_reached" } }, 409),
+    );
+
+    renderManager();
+    fireEvent.click(screen.getByTestId("suggest-resources"));
+
+    expect(await screen.findByText("suggestionLimitReached")).toBeInTheDocument();
+  });
 });

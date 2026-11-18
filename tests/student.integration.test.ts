@@ -915,7 +915,7 @@ describe("student content", () => {
           lessonId: lesson.id,
           kind: "LINK",
           status: "SUGGESTED",
-          source: "QR",
+          source: "AI",
           title: "Suggested",
           url: "https://example.com/suggested",
           fingerprint: `student-resource-suggested-${lesson.id}`,
@@ -934,6 +934,11 @@ describe("student content", () => {
       ],
     });
 
+    await prisma.lesson.update({
+      where: { id: lesson.id },
+      data: { topics: { el: ["Μυστικό θέμα"], en: ["Secret topic"] }, topicsEdited: true },
+    });
+
     const data = await lessonData.loadLessonForStudent({
       lessonId: lesson.id,
       locale: "en",
@@ -941,6 +946,8 @@ describe("student content", () => {
       normalizedStudentName: "maria",
     });
 
+    expect(data?.lesson).not.toHaveProperty("topics");
+    expect(JSON.stringify(data)).not.toContain("Secret topic");
     expect(data?.resources.map((resource) => resource.title)).toEqual(["First", "Second"]);
     expect(data?.resources[0]).toMatchObject({
       kind: "YOUTUBE",
@@ -951,6 +958,51 @@ describe("student content", () => {
     expect(serialized).not.toContain("fingerprint");
     expect(serialized).not.toContain("SUGGESTED");
     expect(serialized).not.toContain("DISMISSED");
+  });
+
+  it("localizes the rubric and omits it when the lesson has none", async () => {
+    const { lesson } = await createLessonFixture();
+    const rubric = {
+      criteria: [1, 2, 3].map((index) => ({
+        id: `criterion-${index}`,
+        title: { el: `Κριτήριο ${index}`, en: `Criterion ${index}` },
+        description: { el: `Περιγραφή ${index}`, en: `Description ${index}` },
+      })),
+      levels: [1, 2, 3].map((index) => ({
+        id: `level-${index}`,
+        label: { el: `Επίπεδο ${index}`, en: `Level ${index}` },
+        description: { el: `Επίπεδο περιγραφή ${index}`, en: `Level description ${index}` },
+      })),
+    };
+    await prisma.lesson.update({ where: { id: lesson.id }, data: { rubric } });
+
+    const english = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "en",
+      token: "test-token",
+      normalizedStudentName: "maria",
+    });
+    expect(english?.rubric?.criteria[0].title).toBe("Criterion 1");
+    expect(english?.rubric?.levels[0].label).toBe("Level 1");
+    expect(english?.rubric?.fallback).toBe(false);
+
+    const greek = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "el",
+      token: "test-token",
+      normalizedStudentName: "maria",
+    });
+    expect(greek?.rubric?.criteria[0].title).toBe("Κριτήριο 1");
+    expect(greek?.rubric?.levels[0].label).toBe("Επίπεδο 1");
+
+    const empty = await createLessonFixture();
+    const withoutRubric = await lessonData.loadLessonForStudent({
+      lessonId: empty.lesson.id,
+      locale: "en",
+      token: "test-token",
+      normalizedStudentName: "maria",
+    });
+    expect(withoutRubric?.rubric).toBeNull();
   });
 
   it("does not expose questionnaire answer keys and falls back to the primary locale", async () => {

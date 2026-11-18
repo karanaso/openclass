@@ -7,6 +7,10 @@ Turn class PDFs into interactive lessons: study cards, a bilingual quiz bank, a 
 - Teacher-only admin with environment-configured credentials
 - Classes, bulk PDF upload, private storage, durable background processing
 - OpenAI-generated, source-grounded content in Greek and English
+- AI-generated bilingual lesson topics and assessment rubrics that teachers can edit
+- A student-facing Rubric tab after the quiz, kept separate from official scoring
+- Enriched per-lesson results dashboards with score distribution and per-student performance
+- AI-proposed game and video resources that teachers review before students see them
 - Student share links, name-only entry, no accounts
 - PDF, cards, game, and questionnaire in one tabbed lesson
 - Server-authoritative scoring, attempts, per-question analytics, CSV export

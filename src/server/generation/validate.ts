@@ -1,4 +1,6 @@
 import { AppError } from "@/lib/errors";
+import type { LessonRubric } from "@/lib/rubric";
+import type { LessonTopics } from "@/lib/topics";
 import type { ContentCounts, PromptPage, RawCard, RawQuestion } from "./schemas";
 import type { GeneratedArtifacts, GeneratedQuestion } from "./types";
 
@@ -20,6 +22,8 @@ export function validateGeneratedArtifacts(
   raw: RawArtifacts,
   pages: PromptPage[],
   counts: ContentCounts,
+  topics: LessonTopics | null = null,
+  rubric: LessonRubric | null = null,
 ): GeneratedArtifacts {
   const errors: string[] = [];
   const pageNumbers = new Set(pages.map((page) => page.pageNumber));
@@ -107,5 +111,7 @@ export function validateGeneratedArtifacts(
     })),
     questionnaire,
     game,
+    topics,
+    rubric,
   };
 }
