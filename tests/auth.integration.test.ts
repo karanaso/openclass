@@ -23,7 +23,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await closeRedis();
-  await redis?.stop();
+  try {
+    await redis?.stop();
+  } catch (error) {
+    // Rootless Podman may fail to kill its network process after the container stops.
+    console.warn("Test container cleanup reported errors", [error]);
+  }
 });
 
 function loginRequest(password: string, ip = "10.0.0.1") {

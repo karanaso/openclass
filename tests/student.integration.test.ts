@@ -734,6 +734,75 @@ describe("millionaire game start errors", () => {
 });
 
 describe("student content", () => {
+  it("exposes only approved resources in stable order", async () => {
+    const { lesson } = await createLessonFixture();
+    await prisma.lessonResource.createMany({
+      data: [
+        {
+          lessonId: lesson.id,
+          kind: "LINK",
+          status: "APPROVED",
+          source: "MANUAL",
+          title: "Second",
+          description: "Second description",
+          url: "https://example.com/second",
+          fingerprint: `student-resource-second-${lesson.id}`,
+          position: 2,
+        },
+        {
+          lessonId: lesson.id,
+          kind: "YOUTUBE",
+          status: "APPROVED",
+          source: "TEXT",
+          title: "First",
+          url: "https://youtu.be/dQw4w9WgXcQ",
+          youtubeId: "dQw4w9WgXcQ",
+          sourcePage: 1,
+          fingerprint: `student-resource-first-${lesson.id}`,
+          position: 1,
+        },
+        {
+          lessonId: lesson.id,
+          kind: "LINK",
+          status: "SUGGESTED",
+          source: "QR",
+          title: "Suggested",
+          url: "https://example.com/suggested",
+          fingerprint: `student-resource-suggested-${lesson.id}`,
+          position: 3,
+        },
+        {
+          lessonId: lesson.id,
+          kind: "LINK",
+          status: "DISMISSED",
+          source: "ANNOTATION",
+          title: "Dismissed",
+          url: "https://example.com/dismissed",
+          fingerprint: `student-resource-dismissed-${lesson.id}`,
+          position: 4,
+        },
+      ],
+    });
+
+    const data = await lessonData.loadLessonForStudent({
+      lessonId: lesson.id,
+      locale: "en",
+      token: "test-token",
+      normalizedStudentName: "maria",
+    });
+
+    expect(data?.resources.map((resource) => resource.title)).toEqual(["First", "Second"]);
+    expect(data?.resources[0]).toMatchObject({
+      kind: "YOUTUBE",
+      youtubeId: "dQw4w9WgXcQ",
+      sourcePage: 1,
+    });
+    const serialized = JSON.stringify(data?.resources);
+    expect(serialized).not.toContain("fingerprint");
+    expect(serialized).not.toContain("SUGGESTED");
+    expect(serialized).not.toContain("DISMISSED");
+  });
+
   it("does not expose questionnaire answer keys and falls back to the primary locale", async () => {
     const { lesson } = await createLessonFixture({ includeEnglish: false });
     const data = await lessonData.loadLessonForStudent({

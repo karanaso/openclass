@@ -39,8 +39,23 @@ export async function startTestInfra(): Promise<TestInfra> {
     redis,
     stop: async () => {
       await prisma.$disconnect();
-      await postgres.stop();
-      await redis.stop();
+      const cleanupErrors: unknown[] = [];
+      try {
+        await postgres.stop();
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        await redis.stop();
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      if (cleanupErrors.length > 0) {
+        // Rootless Podman can fail to kill its network process during teardown
+        // after the containers have already stopped. Keep that runtime quirk
+        // from failing otherwise green integration runs.
+        console.warn("Test container cleanup reported errors", cleanupErrors);
+      }
     },
   };
 }

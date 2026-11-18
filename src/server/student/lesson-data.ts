@@ -1,4 +1,4 @@
-import type { Prisma, QuestionType } from "@prisma/client";
+import type { Prisma, QuestionType, ResourceKind } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getStorage } from "@/server/storage";
 import type { Locale } from "@/lib/locale";
@@ -7,6 +7,15 @@ import { getLessonQuestionnaireSummary, type ClassSummary } from "./class-summar
 export type StudentOption = { id: string; text: string };
 export type StudentQuestion = { id: string; type: QuestionType; prompt: string; options: StudentOption[] };
 export type StudentCard = { id: string; prompt: string; answer: string };
+export type StudentResource = {
+  id: string;
+  kind: ResourceKind;
+  title: string;
+  description: string | null;
+  url: string;
+  youtubeId: string | null;
+  sourcePage: number | null;
+};
 export type StudentFeedback = {
   questionId: string;
   selectedOptionId: string | null;
@@ -70,6 +79,10 @@ export async function loadLessonForStudent(input: {
     include: {
       class: true,
       cards: { orderBy: { position: "asc" }, include: { translations: true } },
+      resources: {
+        where: { status: "APPROVED" },
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+      },
       questions: { orderBy: { position: "asc" }, include: questionInclude },
       attempts: {
         where: {
@@ -141,6 +154,16 @@ export async function loadLessonForStudent(input: {
       }
     : null;
 
+  const resources: StudentResource[] = lesson.resources.map((resource) => ({
+    id: resource.id,
+    kind: resource.kind,
+    title: resource.title,
+    description: resource.description,
+    url: resource.url,
+    youtubeId: resource.youtubeId,
+    sourcePage: resource.sourcePage,
+  }));
+
   const existingAttempt = lesson.attempts[0];
   let existingResult: QuestionnaireResult | null = null;
   if (existingAttempt) {
@@ -185,6 +208,7 @@ export async function loadLessonForStudent(input: {
     cards,
     questionnaire,
     game,
+    resources,
     sourceDocument,
     existingResult,
     draftAnswers: (lesson.drafts[0]?.answers as Record<string, string> | undefined) ?? {},

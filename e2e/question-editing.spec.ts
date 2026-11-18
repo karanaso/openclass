@@ -157,6 +157,7 @@ test("teacher can edit and create questionnaire and game questions", async ({ pa
     expect(shareUrl).toContain("/el/s/");
 
     await page.goto(shareUrl);
+    await page.getByTestId("student-school").fill("1ο Γυμνάσιο");
     await page.getByTestId("student-name").fill(`Μαθητής ${suffix}`);
     await page.getByTestId("student-start").click();
     await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);

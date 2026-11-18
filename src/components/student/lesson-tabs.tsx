@@ -1,12 +1,13 @@
 "use client";
 
-import { BookOpen, FileText, Gamepad2, ListChecks, LogOut } from "lucide-react";
+import { BookOpen, FileText, Gamepad2, Link2, ListChecks, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { CardDeck } from "@/components/student/card-deck";
+import { LessonResources } from "@/components/student/lesson-resources";
 import { PdfViewer } from "@/components/student/pdf-viewer";
 import { MillionaireGame } from "@/components/student/millionaire-game";
 import { Questionnaire } from "@/components/student/questionnaire";
@@ -14,7 +15,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { StudentLessonData } from "@/server/student/lesson-data";
 
-type Tab = "pdf" | "cards" | "game" | "quiz";
+type Tab = "pdf" | "cards" | "resources" | "game" | "quiz";
 
 export function LessonTabs({
   token,
@@ -34,10 +35,11 @@ export function LessonTabs({
   const available: Record<Tab, boolean> = {
     pdf: Boolean(data.sourceDocument),
     cards: data.cards.length > 0,
+    resources: data.resources.length > 0,
     game: data.game.length > 0,
     quiz: data.questionnaire.length > 0,
   };
-  const tabOrder: Tab[] = ["pdf", "cards", "game", "quiz"];
+  const tabOrder: Tab[] = ["pdf", "cards", "resources", "game", "quiz"];
   const firstAvailable = tabOrder.find((tab) => available[tab]) ?? "cards";
   const [active, setActive] = useState<Tab>(requested && available[requested] ? requested : firstAvailable);
   const requestedActiveTab = requested && available[requested] ? requested : null;
@@ -85,7 +87,7 @@ export function LessonTabs({
       <div role="tablist" className="flex flex-wrap gap-2">
         {tabOrder.map((tab) => {
           if (!available[tab]) return null;
-          const icons = { pdf: FileText, cards: BookOpen, game: Gamepad2, quiz: ListChecks };
+          const icons = { pdf: FileText, cards: BookOpen, resources: Link2, game: Gamepad2, quiz: ListChecks };
           const Icon = icons[tab];
           return (
             <button
@@ -117,6 +119,10 @@ export function LessonTabs({
             cards={data.cards}
             initiallyViewed={data.deckViewed}
           />
+        ) : null}
+
+        {active === "resources" && available.resources ? (
+          <LessonResources resources={data.resources} />
         ) : null}
 
         {active === "game" && available.game ? (

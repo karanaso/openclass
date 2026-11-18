@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { detectContentLocale } from "@/lib/locale";
 import { prisma } from "@/server/db";
 import { extractPdfPages } from "@/server/pdf/extract";
+import { discoverResourceCandidates } from "@/server/pdf/resources";
 import { enqueueStage, type PipelineJob } from "@/server/queue";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
+import { createSuggestedResources } from "@/server/services/resources";
 import { getStorage } from "@/server/storage";
 
 export async function processExtract(data: PipelineJob): Promise<void> {
@@ -34,6 +37,15 @@ export async function processExtract(data: PipelineJob): Promise<void> {
     }),
     prisma.lesson.update({ where: { id: lesson.id }, data: { pageCount: pages.length, sourceLocale } }),
   ]);
+
+  try {
+    const candidates = await discoverResourceCandidates(bytes, pages);
+    if (candidates.length > 0) {
+      await createSuggestedResources(lesson.id, candidates);
+    }
+  } catch (error) {
+    logger.warn({ lessonId: lesson.id, err: error }, "resource discovery failed");
+  }
 
   await setLessonStatus(lesson.id, "GENERATING");
   await enqueueStage({ lessonId: lesson.id, stage: "generate", version: data.version });

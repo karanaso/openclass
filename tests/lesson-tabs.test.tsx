@@ -31,6 +31,10 @@ vi.mock("@/components/student/card-deck", () => ({
   CardDeck: () => <div data-testid="card-deck-mock" />,
 }));
 
+vi.mock("@/components/student/lesson-resources", () => ({
+  LessonResources: () => <div data-testid="lesson-resources-mock" />,
+}));
+
 vi.mock("@/components/student/millionaire-game", () => ({
   MillionaireGame: () => <div data-testid="game-mock" />,
 }));
@@ -39,7 +43,10 @@ vi.mock("@/components/student/questionnaire", () => ({
   Questionnaire: () => <div data-testid="quiz-mock" />,
 }));
 
-function data(sourceDocument: StudentLessonData["sourceDocument"]): StudentLessonData {
+function data(
+  sourceDocument: StudentLessonData["sourceDocument"],
+  resources: StudentLessonData["resources"] = [],
+): StudentLessonData {
   return {
     lesson: {
       id: "lesson-1",
@@ -54,6 +61,7 @@ function data(sourceDocument: StudentLessonData["sourceDocument"]): StudentLesso
     cards: [{ id: "card-1", prompt: "Question", answer: "Answer" }],
     questionnaire: [],
     game: [],
+    resources,
     sourceDocument,
     existingResult: null,
     draftAnswers: {},
@@ -63,6 +71,18 @@ function data(sourceDocument: StudentLessonData["sourceDocument"]): StudentLesso
     primaryLocale: "el",
   };
 }
+
+const resources: StudentLessonData["resources"] = [
+  {
+    id: "resource-1",
+    kind: "LINK",
+    title: "Study guide",
+    description: "Extra reading",
+    url: "https://example.com/guide",
+    youtubeId: null,
+    sourcePage: 1,
+  },
+];
 
 beforeEach(() => {
   replace.mockReset();
@@ -122,6 +142,42 @@ describe("lesson tabs", () => {
     expect(screen.queryByTestId("tab-pdf")).not.toBeInTheDocument();
     expect(screen.getByTestId("card-deck-mock")).toBeInTheDocument();
     expect(screen.queryByTestId("pdf-viewer-mock")).not.toBeInTheDocument();
+  });
+
+  it("places Resources after Cards and opens it on click", () => {
+    render(
+      <LessonTabs
+        token="token"
+        studentName="Maria"
+        data={data({ url: "/api/s/token/lessons/lesson-1/source", filename: "lesson.pdf" }, resources)}
+      />,
+    );
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.getAttribute("data-testid"))).toEqual([
+      "tab-pdf",
+      "tab-cards",
+      "tab-resources",
+    ]);
+
+    fireEvent.click(screen.getByTestId("tab-resources"));
+    expect(screen.getByTestId("tab-resources")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("lesson-resources-mock")).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith(expect.stringContaining("tab=resources"), { scroll: false });
+  });
+
+  it("respects a deep link to the Resources tab", () => {
+    state.params = new URLSearchParams("tab=resources");
+    render(
+      <LessonTabs
+        token="token"
+        studentName="Maria"
+        data={data({ url: "/api/s/token/lessons/lesson-1/source", filename: "lesson.pdf" }, resources)}
+      />,
+    );
+
+    expect(screen.getByTestId("tab-resources")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("lesson-resources-mock")).toBeInTheDocument();
   });
 
   it("falls back to the first available tab when the game disappears after a refresh", () => {

@@ -107,6 +107,7 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     expect(shareUrl).toContain("/el/s/");
 
     await page.goto(shareUrl);
+    await page.getByTestId("student-school").fill("1ο Γυμνάσιο");
     await page.getByTestId("student-name").fill(`Μαθήτρια ${suffix}`);
     await page.getByTestId("student-start").click();
     await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);

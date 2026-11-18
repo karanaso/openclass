@@ -135,6 +135,7 @@ test.describe("sticky top navigation", () => {
     await page.goto(`/el/s/${token}`);
     await expectStickyHeader(page);
 
+    await page.getByTestId("student-school").fill("1ο Γυμνάσιο");
     await page.getByTestId("student-name").fill(`Sticky Student ${suffix}`);
     await page.getByTestId("student-start").click();
     await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//, { timeout: 20_000 });

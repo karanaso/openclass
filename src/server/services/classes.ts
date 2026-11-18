@@ -121,7 +121,7 @@ export async function getLessonDetail(id: string, db: PrismaClient = defaultPris
       jobs: { orderBy: { createdAt: "asc" } },
       shareLinks: true,
       pages: { select: { pageNumber: true }, orderBy: { pageNumber: "asc" } },
-      _count: { select: { cards: true, questions: true, attempts: true, deckViews: true } },
+      _count: { select: { cards: true, questions: true, attempts: true, deckViews: true, resources: true } },
     },
   });
   if (!lesson) throw new NotFoundError("Lesson not found");

@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              `default-src 'self'; img-src 'self' data:; media-src 'self' blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ${connectSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self'`,
+              `default-src 'self'; img-src 'self' data:; media-src 'self' blob:; ${scriptSrc}; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; ${connectSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self'`,
           },
         ],
       },

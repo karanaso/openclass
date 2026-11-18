@@ -10,6 +10,7 @@ import {
 import { LessonActions } from "@/components/admin/lesson-actions";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
+import { ResourceManager } from "@/components/admin/resource-manager";
 import { ShareLinkManager } from "@/components/admin/share-link-manager";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -17,6 +18,7 @@ import type { Locale } from "@/lib/locale";
 import { getLessonDetail } from "@/server/services/classes";
 import { listLessonCards } from "@/server/services/cards";
 import { listLessonQuestions } from "@/server/services/questions";
+import { listLessonResources } from "@/server/services/resources";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +42,11 @@ export default async function LessonDetailPage({
     notFound();
   }
 
-  const [cards, questions] = await Promise.all([listLessonCards(lesson.id), listLessonQuestions(lesson.id)]);
+  const [cards, questions, resources] = await Promise.all([
+    listLessonCards(lesson.id),
+    listLessonQuestions(lesson.id),
+    listLessonResources(lesson.id),
+  ]);
 
   const tokens = lesson.jobs.reduce((sum, job) => sum + job.inputTokens + job.outputTokens, 0);
   const cost = lesson.jobs.reduce((sum, job) => sum + job.estimatedCostUsd, 0);
@@ -142,6 +148,9 @@ export default async function LessonDetailPage({
             <p>
               {t("deckViews")}: <strong>{lesson._count.deckViews}</strong>
             </p>
+            <p>
+              {t("resourcesCount")}: <strong data-testid="lesson-resources-count">{lesson._count.resources}</strong>
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -152,6 +161,8 @@ export default async function LessonDetailPage({
         questions={questions}
         editable={lesson.status === "READY"}
       />
+
+      <ResourceManager lessonId={lesson.id} initialResources={resources} />
 
       <Card>
         <CardHeader>

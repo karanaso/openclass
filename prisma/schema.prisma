@@ -49,6 +49,24 @@ enum GameStatus {
   ENDED
 }
 
+enum ResourceKind {
+  LINK
+  YOUTUBE
+}
+
+enum ResourceStatus {
+  SUGGESTED
+  APPROVED
+  DISMISSED
+}
+
+enum ResourceSource {
+  MANUAL
+  TEXT
+  ANNOTATION
+  QR
+}
+
 model Class {
   id          String   @id @default(cuid())
   name        String
@@ -93,6 +111,7 @@ model Lesson {
   attempts   Attempt[]
   drafts     AttemptDraft[]
   deckViews  DeckView[]
+  resources  LessonResource[]
 
   @@index([classId, createdAt])
   @@index([classId, checksum])
@@ -281,4 +300,26 @@ model DeckView {
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([lessonId, normalizedStudentName])
+}
+
+model LessonResource {
+  id          String         @id @default(cuid())
+  lessonId    String
+  kind        ResourceKind
+  status      ResourceStatus @default(SUGGESTED)
+  source      ResourceSource @default(MANUAL)
+  sourcePage  Int?
+  title       String
+  description String?
+  url         String
+  youtubeId   String?
+  fingerprint String
+  position    Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, fingerprint])
+  @@index([lessonId, position])
 }
