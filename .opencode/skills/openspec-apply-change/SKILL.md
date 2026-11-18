@@ -66,7 +66,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - If `state: "blocked"`: show the message and pause implementation.
      - If `missingArtifacts` is non-empty: suggest completing the missing artifacts. Run `openspec status --change "<name>" --json`, select the next `ready` artifact (not `skipped` or `blocked`), and use `openspec instructions "<artifact-id>" --change "<name>" --json` for its rules and template. Keep the selected `--store <id>` on both commands.
      - Otherwise, follow the CLI instruction to create or repair the schema-configured tracking file from existing planning artifacts. Do not assume another artifact is ready or start implementation while blocked.
-   - If `state: "all_done"`: report that all tracked tasks are complete and suggest review or verification as appropriate before archiving
+   - If `state: "all_done"`: skip implementation and continue to the ticket update and completion report in steps 7-8
    - Otherwise: proceed to implementation
 
    Treat `context` as a required prompt-level input. Read and consider it, and
@@ -120,7 +120,28 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **On completion or pause, show status**
+7. **On completion, update the ticket**
+
+   When every tracked task is complete (including a run that starts in `state: "all_done"`), update the change's ticket in the current project before reporting completion:
+
+   - Find the ticket under the current working directory: `tickets/*-<change-name>/ticket.md`, plus `tickets/<change-name>/ticket.md` for undated folders.
+   - If several match, update the newest folder (ISO-dated names sort by date) and mention that the others were left unchanged.
+   - If one exists, do not modify its `## Request` section. Set `Status: implemented`, add or update an `Implemented: <YYYY-MM-DD>` metadata line, and add or update an `## Implementation` section:
+
+     ```markdown
+     ## Implementation
+
+     - Completed: <YYYY-MM-DD>
+     - Tasks: <completed>/<total>
+     - Verification: <checks run this session>
+     ```
+
+     Keep every other part of the ticket intact and do not duplicate the section on a re-run.
+   - If no ticket exists, report that no ticket was found and continue; do not block completion or invent a request.
+
+   If the run pauses with tasks remaining, do not change the ticket.
+
+8. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
@@ -150,6 +171,7 @@ Working on task 4/7: <task description>
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Progress:** 7/7 tasks complete ✓
+**Ticket:** <ticket-path> (Status: implemented)
 
 ### Completed This Session
 - [x] Task 1
@@ -190,6 +212,8 @@ What would you like to do?
 - Pause on errors, blockers, or unclear requirements - don't guess
 - When a task needs work beyond what the spec describes, surface the added scope and pause - never silently narrow, defer, or simplify away specified behavior
 - Only mark a task `- [x]` when its specified behavior is fully implemented, not when it is partially done or deferred
+- On completion, mark the ticket `Status: implemented` and refresh its `## Implementation` section; never modify its `## Request` section or duplicate the implementation section
+- Report a missing ticket but never block apply on it; if several tickets match, update the newest and mention the others
 - Use contextFiles from CLI output, don't assume specific file names
 - Use each task's sourcePath and line to update its exact checkbox
 - Do not use context or operation guidance as proof that a task is complete

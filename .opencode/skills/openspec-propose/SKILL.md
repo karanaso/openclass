@@ -74,7 +74,34 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
    Otherwise, omit `--schema` to preserve the configured default.
 
-4. **Create the change directory**
+4. **Create or check the ticket file**
+
+   Every proposal is tied to a ticket folder in the current project. Tickets live outside `openspec/` and outside any registered store, under the current working directory:
+
+   - Ticket folder: `tickets/<YYYY-MM-DD>-<name>/` using today's ISO date (for example, `tickets/2026-11-18-add-user-auth/`).
+   - Ticket file: `ticket.md` inside that folder.
+
+   Before creating a change:
+
+   1. Look for an existing ticket for this change: `tickets/*-<name>/ticket.md`, plus `tickets/<name>/ticket.md` for folders created without a date prefix.
+   2. If a ticket exists, read it and do not overwrite it. Its `## Request` section is the authoritative description of what to build; use it for the proposal and the codebase exploration. If the file is empty or has no request text, ask the user how to proceed before writing anything.
+   3. If no ticket exists, create `tickets/<YYYY-MM-DD>-<name>/ticket.md` with:
+
+      ```markdown
+      # <Human-readable change title>
+
+      - Change: `<name>`
+      - Created: `<YYYY-MM-DD>`
+      - Status: proposed
+
+      ## Request
+
+      <the user's original request, verbatim>
+      ```
+
+   Record whether the ticket was created or reused, and keep its path for the final summary. Creating the ticket is the only write before the change directory; never modify an existing ticket.
+
+5. **Create the change directory**
 
    Choose one schema form below. If a registered store is selected, append `--store "<store-id>"` to that command and each later OpenSpec command shown below that accepts `--store`.
 
@@ -89,7 +116,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
    ```
    This creates a scaffolded change in the planning home resolved by the CLI with `.openspec.yaml`.
 
-5. **Get the artifact build order**
+6. **Get the artifact build order**
    ```bash
    openspec status --change "<name>" --json
    ```
@@ -98,7 +125,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
    - `artifacts`: list of all artifacts, each with its `status` and its `requires` edges (the artifact IDs it directly depends on)
    - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context. Use these instead of assuming repo-local paths.
 
-6. **Create every artifact in the required set**
+7. **Create every artifact in the required set**
 
    Use a todo list to track progress through the artifacts.
 
@@ -142,7 +169,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
       - Ask the user to clarify
       - Then continue with creation
 
-7. **Show final status**
+8. **Show final status**
    ```bash
    openspec status --change "<name>"
    ```
@@ -151,6 +178,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 
 After completing all artifacts, summarize:
 - Change name and location
+- Ticket path and whether it was created or reused
 - List of artifacts created with brief descriptions, plus any conditional artifact you skipped and why
 - What's ready: "All artifacts needed for implementation are ready."
 - Prompt: "The artifacts are ready for review. When you are ready, run `/opsx-apply` or ask me to apply this change."
@@ -172,4 +200,5 @@ After completing all artifacts, summarize:
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)
 - Ask about ambiguities that would materially change scope, externally observable behavior, compatibility, or acceptance criteria; for minor details, make reasonable assumptions and record them
 - If a change with that name already exists, ask if user wants to continue it or create a new one
+- Create or reuse exactly one ticket at `tickets/<YYYY-MM-DD>-<change-name>/ticket.md` before creating the change; never overwrite an existing ticket, and use its `## Request` section as the authoritative description
 - Verify each artifact file exists after writing before proceeding to next
