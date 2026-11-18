@@ -200,6 +200,8 @@ DOCKER_IMAGE_REPO=example/app ./scripts/docker-push.sh
 
 The script requires Docker with buildx and refuses to push without Docker Hub credentials unless `DRY_RUN=1`. Override the platform with `PLATFORM=linux/arm64` only if you have added support and tested it.
 
+`latest` is always published, including when you pass a version argument. If `DOCKER_IMAGE_REPO` includes a tag or digest, the script strips it before building, so `DOCKER_IMAGE_REPO=karanaso/openclass:dev` still publishes `karanaso/openclass:latest`.
+
 ## Secrets
 
 - Generate `AUTH_SECRET` with at least 32 random bytes.
