@@ -93,12 +93,12 @@ The system SHALL serve the saved prompt and answer to students the next time the
 
 ### Requirement: Card edits do not change other artifacts
 
-The system SHALL limit a card update to the card's prompt and answer text and SHALL NOT change the lesson's questions, narration, videos, or card order.
+The system SHALL limit a card update to the card's prompt and answer text and SHALL NOT change the lesson's questions, game content, or card order.
 
 #### Scenario: Artifacts remain unchanged
 
 - **WHEN** the teacher saves a card edit
-- **THEN** the lesson's questionnaire, game, narration segments, videos, and card order remain unchanged
+- **THEN** the lesson's questionnaire, game, and card order remain unchanged
 
 ### Requirement: Regeneration does not preserve manual card edits
 

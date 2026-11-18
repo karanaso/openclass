@@ -122,12 +122,12 @@ The system SHALL require a non-empty school name before a student starts a lesso
 
 ### Requirement: Lesson tabs
 
-The system SHALL present the lesson as tabs for the source PDF, Cards, Video, Game, and Questionnaire in that order, SHALL select the PDF tab when the lesson opens, and SHALL show only modes that have published content or a retrievable source document.
+The system SHALL present the lesson as tabs for the source PDF, Cards, Game, and Questionnaire in that order, SHALL select the PDF tab when the lesson opens, and SHALL show only modes that have published content or a retrievable source document.
 
 #### Scenario: Available modes
 
-- **WHEN** a published lesson has cards, game, and questionnaire but no video
-- **THEN** the PDF, Cards, Game, and Questionnaire tabs are usable and the Video tab is hidden or shown unavailable
+- **WHEN** a published lesson has cards, game, and questionnaire content
+- **THEN** the PDF, Cards, Game, and Questionnaire tabs are usable and no Video tab is offered
 
 #### Scenario: PDF opens first
 

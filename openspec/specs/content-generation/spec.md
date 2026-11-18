@@ -6,39 +6,6 @@ Turns extracted lesson page text into validated, bilingual questionnaire and gam
 
 ## Requirements
 
-### Requirement: Content generation publishes without narration
-
-The system SHALL validate and publish only cards, questionnaire items, and game questions during content generation. Missing, invalid, or absent narration SHALL NOT fail content generation or prevent the lesson from becoming `READY`.
-
-#### Scenario: Sparse page does not block content
-
-- **WHEN** a source page contains little prose and the narration stage would omit it
-- **THEN** content generation still publishes the cards, questionnaire, and game and marks the lesson `READY`
-
-#### Scenario: No narration provider call
-
-- **WHEN** content generation runs
-- **THEN** it does not request narration from the content provider and does not include narration in its artifact validation
-
-#### Scenario: Content-only retry
-
-- **WHEN** content validation fails
-- **THEN** the retry covers only cards, questionnaire, and game, not narration
-
-### Requirement: Content publication clears stale narration
-
-When new content is published, the system SHALL invalidate the lesson's previously prepared story so stale scenes cannot be reused with changed page text. The system SHALL NOT need to delete legacy narration rows to satisfy this requirement.
-
-#### Scenario: Regeneration clears scripts
-
-- **WHEN** new content is published for a lesson with a current story
-- **THEN** the lesson's story is marked stale or removed
-
-#### Scenario: Next video prepares fresh scripts
-
-- **WHEN** a video is requested after content regeneration
-- **THEN** the story is prepared from the lesson's current pages rather than the invalidated story
-
 ### Requirement: Question option cardinality is exact
 
 The system SHALL require exactly four options for every `MULTIPLE_CHOICE` question and exactly two for every `TRUE_FALSE` question, in both the Greek and English option arrays. Nonconforming provider output SHALL fail schema parsing and use the existing retry loop; the system SHALL NOT add, remove, or fabricate options to satisfy the count.
