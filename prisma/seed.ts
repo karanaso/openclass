@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -18,6 +19,7 @@ async function main() {
     await prisma.lesson.create({
       data: {
         classId: demoClass.id,
+        accessCode: String(randomInt(100_000_000, 1_000_000_000)),
         title: "Demo Lesson",
         originalFilename: "demo.pdf",
         storageKey: `lessons/demo/original.pdf`,

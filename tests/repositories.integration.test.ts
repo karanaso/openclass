@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { setLessonStatus } from "@/server/repositories/lesson-status";
 import { publishArtifacts } from "@/server/repositories/publication";
@@ -58,6 +59,7 @@ async function createLesson() {
   return infra.prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: "Lesson",
       originalFilename: "lesson.pdf",
       storageKey: "lessons/test/original.pdf",

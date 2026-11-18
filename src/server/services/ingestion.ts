@@ -6,6 +6,7 @@ import { AppError } from "@/lib/errors";
 import { prisma as defaultPrisma } from "@/server/db";
 import { getPdfPageCount } from "@/server/pdf/extract";
 import { enqueueStage } from "@/server/queue";
+import { assignAccessCode, isAccessCodeUniqueViolation } from "@/server/services/lesson-access-codes";
 import { getStorage, randomStorageKey, type LocalStorage } from "@/server/storage";
 
 export type UploadFileResult = {
@@ -131,21 +132,35 @@ export async function ingestUploads(
     const storageKey = randomStorageKey(`lessons/${lessonId}`, "pdf");
     try {
       await storage.put(storageKey, validated.bytes);
-      const lesson = await db.lesson.create({
-        data: {
-          id: lessonId,
-          classId,
-          title: validated.title,
-          originalFilename: validated.filename,
-          storageKey,
-          checksum: validated.checksum,
-          sizeBytes: validated.sizeBytes,
-          pageCount: validated.pageCount,
-          sourceLocale: env.DEFAULT_LOCALE,
-          status: "QUEUED",
-          passThreshold: env.DEFAULT_PASS_THRESHOLD,
-        },
-      });
+      let lesson: { id: string; jobVersion: number } | null = null;
+      for (let attempt = 0; attempt < 10 && !lesson; attempt += 1) {
+        const accessCode = await assignAccessCode(db);
+        try {
+          lesson = await db.lesson.create({
+            data: {
+              id: lessonId,
+              classId,
+              accessCode,
+              title: validated.title,
+              originalFilename: validated.filename,
+              storageKey,
+              checksum: validated.checksum,
+              sizeBytes: validated.sizeBytes,
+              pageCount: validated.pageCount,
+              sourceLocale: env.DEFAULT_LOCALE,
+              status: "QUEUED",
+              passThreshold: env.DEFAULT_PASS_THRESHOLD,
+            },
+            select: { id: true, jobVersion: true },
+          });
+        } catch (error) {
+          if (isAccessCodeUniqueViolation(error)) continue;
+          throw error;
+        }
+      }
+      if (!lesson) {
+        throw new AppError("access_code_unavailable", "Could not assign a lesson access code", 500);
+      }
 
       try {
         await enqueueStage({ lessonId, stage: "extract", version: lesson.jobVersion });

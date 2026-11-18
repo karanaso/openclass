@@ -29,6 +29,7 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Card editing lesson ${suffix}`,
         originalFilename: `card-editing-${suffix}.pdf`,
         storageKey: `lessons/card-editing-${suffix}/original.pdf`,

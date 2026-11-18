@@ -4,7 +4,7 @@ import { resetEnvCache } from "@/lib/env";
 import { UnauthorizedError } from "@/lib/errors";
 import { assertSameOrigin } from "@/server/auth/guard";
 import { verifyTeacherPassword } from "@/server/auth/password";
-import { assertLoginAllowed, clearLoginFailures, recordLoginFailure, type RateLimitStore } from "@/server/auth/rate-limit";
+import { assertLoginAllowed, clearLoginFailures, recordLoginFailure, assertCodeLookupAllowed, clearCodeFailures, recordCodeFailure, type RateLimitStore } from "@/server/auth/rate-limit";
 import { createSessionToken, verifySessionToken } from "@/server/auth/session";
 
 const baseEnv = {
@@ -78,7 +78,9 @@ class FakeStore implements RateLimitStore {
   }
   async ttl(key: string) {
     const exp = this.expirations.get(key);
-    return exp ? Math.max(1, Math.round((exp - Date.now()) / 1000)) : -1;
+    if (!exp) return -1;
+    const remaining = Math.round((exp - Date.now()) / 1000);
+    return remaining > 0 ? remaining : -1;
   }
   async del(key: string) {
     this.values.delete(key);
@@ -97,6 +99,61 @@ describe("login throttling", () => {
     await expect(assertLoginAllowed("1.2.3.4", store)).rejects.toThrow(/Too many/);
     await clearLoginFailures("1.2.3.4", store);
     await expect(assertLoginAllowed("1.2.3.4", store)).resolves.toBeUndefined();
+  });
+});
+
+describe("access code throttling", () => {
+  it("allows four failures and locks after the fifth", async () => {
+    const store = new FakeStore();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await recordCodeFailure("5.6.7.8", store);
+    }
+    await expect(assertCodeLookupAllowed("5.6.7.8", store)).resolves.toBeUndefined();
+
+    await recordCodeFailure("5.6.7.8", store);
+    await expect(assertCodeLookupAllowed("5.6.7.8", store)).rejects.toMatchObject({ code: "rate_limited" });
+  });
+
+  it("reports the remaining lockout time", async () => {
+    const store = new FakeStore();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await recordCodeFailure("5.6.7.8", store);
+    }
+
+    await expect(assertCodeLookupAllowed("5.6.7.8", store)).rejects.toMatchObject({
+      retryAfterSeconds: expect.any(Number),
+    });
+    try {
+      await assertCodeLookupAllowed("5.6.7.8", store);
+    } catch (error) {
+      const retryAfter = (error as { retryAfterSeconds: number }).retryAfterSeconds;
+      expect(retryAfter).toBeGreaterThan(0);
+      expect(retryAfter).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it("lets the client retry after the lockout expires", async () => {
+    const store = new FakeStore();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await recordCodeFailure("5.6.7.8", store);
+    }
+    for (const key of store.expirations.keys()) {
+      store.expirations.set(key, Date.now() - 1);
+    }
+    await expect(assertCodeLookupAllowed("5.6.7.8", store)).resolves.toBeUndefined();
+  });
+
+  it("clears failures after a successful lookup", async () => {
+    const store = new FakeStore();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await recordCodeFailure("5.6.7.8", store);
+    }
+    await clearCodeFailures("5.6.7.8", store);
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await recordCodeFailure("5.6.7.8", store);
+    }
+    await expect(assertCodeLookupAllowed("5.6.7.8", store)).resolves.toBeUndefined();
   });
 });
 

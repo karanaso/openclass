@@ -85,6 +85,7 @@ model Class {
 model Lesson {
   id               String        @id @default(cuid())
   classId          String
+  accessCode       String        @unique
   title            String
   originalFilename String
   storageKey       String

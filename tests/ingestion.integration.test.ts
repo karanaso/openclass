@@ -91,6 +91,7 @@ describe("upload ingestion", () => {
     const lesson = await prisma.lesson.findUniqueOrThrow({ where: { id: results[0].lessonId! } });
     expect(lesson.status).toBe("QUEUED");
     expect(lesson.title).toBe("photosynthesis");
+    expect(lesson.accessCode).toMatch(/^[1-9]\d{8}$/);
     expect(await getStorage().exists(lesson.storageKey)).toBe(true);
 
     const job = await queueModule.getLessonQueue().getJob(queueModule.jobIdFor({ lessonId: lesson.id, stage: "extract", version: 0 }));
@@ -114,14 +115,40 @@ describe("upload ingestion", () => {
     resetEnvCache();
   });
 
+  it("assigns a unique nine-digit code to every accepted lesson", async () => {
+    const classroom = await createClass("Codes class");
+    const results = await ingestion.ingestUploads(
+      classroom.id,
+      [
+        pdfFile("first.pdf"),
+        pdfFile("second.pdf"),
+        new File(["not a pdf"], "rejected.txt", { type: "text/plain" }),
+      ],
+      { allowDuplicates: true },
+    );
+
+    const accepted = results.filter((result) => result.status === "accepted");
+    expect(accepted).toHaveLength(2);
+    const lessons = await prisma.lesson.findMany({
+      where: { id: { in: accepted.map((result) => result.lessonId!) } },
+    });
+    expect(new Set(lessons.map((lesson) => lesson.accessCode)).size).toBe(2);
+    for (const lesson of lessons) {
+      expect(lesson.accessCode).toMatch(/^[1-9]\d{8}$/);
+    }
+    expect(await prisma.lesson.count({ where: { classId: classroom.id } })).toBe(2);
+  });
+
   it("warns about duplicates within a class but not across classes", async () => {
     const a = await createClass("Duplicate A");
     const b = await createClass("Duplicate B");
     const first = await ingestion.ingestUploads(a.id, [pdfFile("same.pdf")]);
     expect(first[0].status).toBe("accepted");
 
+    const afterFirst = await prisma.lesson.count({ where: { classId: a.id } });
     const duplicate = await ingestion.ingestUploads(a.id, [pdfFile("same.pdf")]);
     expect(duplicate[0].status).toBe("duplicate");
+    expect(await prisma.lesson.count({ where: { classId: a.id } })).toBe(afterFirst);
 
     const otherClass = await ingestion.ingestUploads(b.id, [pdfFile("same.pdf")]);
     expect(otherClass[0].status).toBe("accepted");

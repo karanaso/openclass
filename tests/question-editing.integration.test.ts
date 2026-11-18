@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import type { PrismaClient, QuestionMode, QuestionType } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
@@ -91,6 +92,7 @@ async function createLessonWithQuestions(status: "READY" | "GENERATING" = "READY
   const lesson = await prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: `Question lesson ${sequence}`,
       originalFilename: `questions-${sequence}.pdf`,
       storageKey: `lessons/questions-${sequence}/original.pdf`,

@@ -8,6 +8,7 @@ import {
   GeneratedContentEditors,
 } from "@/components/admin/generated-content-editor";
 import { LessonActions } from "@/components/admin/lesson-actions";
+import { LessonAccessCode } from "@/components/admin/lesson-access-code";
 import { LessonStatus } from "@/components/admin/lesson-status";
 import { LessonTitleEditor } from "@/components/admin/lesson-title-editor";
 import { ResourceManager } from "@/components/admin/resource-manager";
@@ -68,6 +69,9 @@ export default async function LessonDetailPage({
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <LessonTitleEditor lessonId={lesson.id} initialTitle={lesson.title} />
+            <div className="mt-2">
+              <LessonAccessCode lessonId={lesson.id} initialCode={lesson.accessCode} />
+            </div>
             <p className="mt-1 text-muted-foreground">
               {lesson.originalFilename} · {lesson.pageCount ?? 0} {t("pages").toLowerCase()} ·{" "}
               {formatDate(lesson.createdAt, locale as Locale)}

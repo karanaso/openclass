@@ -1,5 +1,6 @@
 import { BookOpen, Gamepad2, ListChecks } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { AccessCodeEntry } from "@/components/student/access-code-entry";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
@@ -28,6 +29,9 @@ export default async function HomePage() {
             <Link href="/login">
               <Button size="lg">{t("teacherCta")}</Button>
             </Link>
+          </div>
+          <div className="mt-8">
+            <AccessCodeEntry />
           </div>
         </section>
 

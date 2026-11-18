@@ -3,7 +3,8 @@ import { z } from "zod";
 import { withPublic } from "@/server/http";
 import { AppError } from "@/lib/errors";
 import { displayStudentName, displaySchoolName, isValidStudentName, isValidSchoolName, normalizeStudentName } from "@/lib/names";
-import { resolveShareToken, hashShareToken } from "@/server/services/share-links";
+import { hashShareToken } from "@/server/services/share-links";
+import { resolveStudentAccess } from "@/server/services/student-access";
 import {
   STUDENT_COOKIE,
   STUDENT_NAME_COOKIE,
@@ -30,7 +31,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       throw new AppError("invalid_school", "Enter a school of up to 120 characters", 422);
     }
 
-    const share = await resolveShareToken(token);
+    const share = await resolveStudentAccess(token);
     const name = displayStudentName(body.name);
     const school = displaySchoolName(body.school);
     const sessionToken = await createStudentSessionToken({

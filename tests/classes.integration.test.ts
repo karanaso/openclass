@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import type { PrismaClient } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
@@ -17,6 +18,8 @@ let classRoute: typeof import("@/app/api/admin/classes/[classId]/route");
 let orderRoute: typeof import("@/app/api/admin/classes/order/route");
 let lessonsRoute: typeof import("@/app/api/admin/classes/[classId]/lessons/route");
 let lessonRoute: typeof import("@/app/api/admin/lessons/[lessonId]/route");
+let accessCodeRoute: typeof import("@/app/api/admin/lessons/[lessonId]/access-code/route");
+let studentAccess: typeof import("@/server/services/student-access");
 
 function request(pathname: string, init: RequestInit = {}, withAuth = true) {
   const headers = new Headers(init.headers);
@@ -44,6 +47,8 @@ beforeAll(async () => {
   orderRoute = await import("@/app/api/admin/classes/order/route");
   lessonsRoute = await import("@/app/api/admin/classes/[classId]/lessons/route");
   lessonRoute = await import("@/app/api/admin/lessons/[lessonId]/route");
+  accessCodeRoute = await import("@/app/api/admin/lessons/[lessonId]/access-code/route");
+  studentAccess = await import("@/server/services/student-access");
   const session = await import("@/server/auth/session");
   cookie = await session.createSessionToken();
 }, 120_000);
@@ -58,6 +63,7 @@ async function createLessonFor(classId: string, title: string, checksum: string)
   return prisma.lesson.create({
     data: {
       classId,
+      accessCode: nextTestAccessCode(),
       title,
       originalFilename: `${title}.pdf`,
       storageKey: `lessons/${title}/original.pdf`,
@@ -300,5 +306,54 @@ describe("class APIs", () => {
     );
     expect(deleted.status).toBe(200);
     expect(await prisma.class.findUnique({ where: { id: classroom.id } })).toBeNull();
+  });
+
+  it("regenerates a lesson access code and invalidates the previous number", async () => {
+    const classroom = await services.createClass({ name: "Access code API" });
+    const lesson = await createLessonFor(classroom.id, "Code lesson", `code-${Math.random()}`);
+    const other = await createLessonFor(classroom.id, "Other lesson", `other-${Math.random()}`);
+    const params = { params: Promise.resolve({ lessonId: lesson.id }) };
+    const oldCode = lesson.accessCode;
+
+    const response = await accessCodeRoute.POST(
+      request(`/api/admin/lessons/${lesson.id}/access-code`, { method: "POST" }),
+      params,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { accessCode: string };
+    expect(body.accessCode).toMatch(/^[1-9]\d{8}$/);
+    expect(body.accessCode).not.toBe(oldCode);
+
+    await expect(studentAccess.resolveStudentAccess(oldCode)).rejects.toMatchObject({ code: "invalid_code" });
+    await expect(studentAccess.resolveStudentAccess(body.accessCode)).resolves.toMatchObject({
+      lessonId: lesson.id,
+    });
+    const unchanged = await prisma.lesson.findUniqueOrThrow({ where: { id: other.id } });
+    expect(unchanged.accessCode).toBe(other.accessCode);
+    expect((await services.getLessonDetail(lesson.id)).accessCode).toBe(body.accessCode);
+  });
+
+  it("requires authentication and same origin to regenerate a code", async () => {
+    const classroom = await services.createClass({ name: "Access code auth" });
+    const lesson = await createLessonFor(classroom.id, "Protected code", `protected-${Math.random()}`);
+    const params = { params: Promise.resolve({ lessonId: lesson.id }) };
+
+    const anonymous = await accessCodeRoute.POST(
+      request(`/api/admin/lessons/${lesson.id}/access-code`, { method: "POST" }, false),
+      params,
+    );
+    expect(anonymous.status).toBe(401);
+
+    const crossOrigin = await accessCodeRoute.POST(
+      new Request(`http://localhost:3000/api/admin/lessons/${lesson.id}/access-code`, {
+        method: "POST",
+        headers: { cookie: `teacher_session=${cookie}`, origin: "https://evil.example" },
+      }),
+      params,
+    );
+    expect(crossOrigin.status).toBe(401);
+
+    const stored = await prisma.lesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    expect(stored.accessCode).toBe(lesson.accessCode);
   });
 });

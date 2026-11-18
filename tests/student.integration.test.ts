@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import { SignJWT } from "jose";
 import type { PrismaClient } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
@@ -12,11 +13,14 @@ let infra: TestInfra;
 let prisma: PrismaClient;
 let storageRoot: string;
 let share: typeof import("@/server/services/share-links");
+let studentAccess: typeof import("@/server/services/student-access");
+let studentGuard: typeof import("@/server/student/guard");
 let questionnaire: typeof import("@/server/student/questionnaire");
 let game: typeof import("@/server/student/game");
 let lessonData: typeof import("@/server/student/lesson-data");
 let session: typeof import("@/server/auth/student");
 let sessionRoute: typeof import("@/app/api/s/[token]/session/route");
+let codeRoute: typeof import("@/app/api/s/code/route");
 let gameStartRoute: typeof import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
 let queueModule: typeof import("@/server/queue");
 let attemptsRepository: typeof import("@/server/repositories/attempts");
@@ -40,11 +44,14 @@ beforeAll(async () => {
   await queueModule.closeLessonQueue();
   prisma = (await import("@/server/db")).prisma;
   share = await import("@/server/services/share-links");
+  studentAccess = await import("@/server/services/student-access");
+  studentGuard = await import("@/server/student/guard");
   questionnaire = await import("@/server/student/questionnaire");
   game = await import("@/server/student/game");
   lessonData = await import("@/server/student/lesson-data");
   session = await import("@/server/auth/student");
   sessionRoute = await import("@/app/api/s/[token]/session/route");
+  codeRoute = await import("@/app/api/s/code/route");
   gameStartRoute = await import("@/app/api/s/[token]/lessons/[lessonId]/game/start/route");
   attemptsRepository = await import("@/server/repositories/attempts");
   classSummary = await import("@/server/student/class-summary");
@@ -65,6 +72,7 @@ async function createLessonFixture(options: { includeEnglish?: boolean } = {}) {
   const lesson = await prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: "Photosynthesis",
       originalFilename: "photosynthesis.pdf",
       storageKey: `lessons/test/${Math.random()}.pdf`,
@@ -205,6 +213,148 @@ describe("share links", () => {
     const created = await share.createShareLink({ classId: classroom.id });
     const resolved = await share.resolveShareToken(created.token);
     expect(resolved.class?.lessons.map((item) => item.id)).toContain(lesson.id);
+  });
+});
+
+describe("student access codes", () => {
+  it("resolves a lesson number to its lesson without a share link", async () => {
+    const { lesson } = await createLessonFixture();
+    const resolved = await studentAccess.resolveStudentAccess(lesson.accessCode);
+
+    expect(resolved.kind).toBe("code");
+    expect(resolved.lessonId).toBe(lesson.id);
+    expect(resolved.classId).toBe(lesson.classId);
+    expect(resolved.lesson?.title).toBe("Photosynthesis");
+    expect(resolved.class).toBeNull();
+  });
+
+  it("rejects an unused number with an invalid-code error", async () => {
+    await expect(studentAccess.resolveStudentAccess("999999999")).rejects.toMatchObject({
+      code: "invalid_code",
+      status: 404,
+    });
+  });
+
+  it("scopes numeric lesson access to the owning lesson", async () => {
+    const first = await createLessonFixture();
+    const second = await createLessonFixture();
+    const resolved = await studentAccess.resolveStudentAccess(first.lesson.accessCode);
+
+    expect(() => studentGuard.assertLessonInShare(resolved, first.lesson.id)).not.toThrow();
+    expect(() => studentGuard.assertLessonInShare(resolved, second.lesson.id)).toThrow();
+  });
+
+  it("applies the shared lockout to repeated numeric lookups", async () => {
+    const { lesson } = await createLessonFixture();
+    const ip = `203.0.113.${Math.floor(Math.random() * 200) + 1}`;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(
+        studentAccess.resolveAccessCodeWithThrottle("999999999", ip),
+      ).rejects.toMatchObject({ code: "invalid_code" });
+    }
+    await expect(
+      studentAccess.resolveAccessCodeWithThrottle(lesson.accessCode, ip),
+    ).rejects.toMatchObject({ code: "rate_limited" });
+
+    const redis = await import("@/server/redis");
+    await redis.getRedis().del(`lesson-code:fail:${ip}`, `lesson-code:lock:${ip}`);
+
+    await expect(
+      studentAccess.resolveAccessCodeWithThrottle(lesson.accessCode, ip),
+    ).resolves.toMatchObject({ kind: "code", lessonId: lesson.id });
+  });
+
+  it("creates a session scoped to the number and rejects another number", async () => {
+    const first = await createLessonFixture();
+    const second = await createLessonFixture();
+    const response = await sessionRoute.POST(
+      new Request(`http://localhost:3000/api/s/${first.lesson.accessCode}/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Maria", school: "1ο Γυμνάσιο" }),
+      }),
+      { params: Promise.resolve({ token: first.lesson.accessCode }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { lessonId: string }).lessonId).toBe(first.lesson.id);
+    const cookie = response.headers
+      .get("set-cookie")
+      ?.match(new RegExp(`${session.STUDENT_COOKIE}=([^;]+)`))?.[1];
+    expect(cookie).toBeTruthy();
+
+    const request = (identifier: string) =>
+      new Request(`http://localhost:3000/api/s/${identifier}/lessons/${first.lesson.id}/deck-view`, {
+        method: "POST",
+        headers: { cookie: `${session.STUDENT_COOKIE}=${cookie}` },
+      });
+
+    await expect(studentGuard.requireStudentContext(request(first.lesson.accessCode), first.lesson.accessCode)).resolves.toMatchObject({
+      session: { name: "Maria" },
+    });
+    await expect(studentGuard.requireStudentContext(request(second.lesson.accessCode), second.lesson.accessCode)).rejects.toMatchObject({
+      code: "unauthorized",
+    });
+  });
+});
+
+describe("public code lookup route", () => {
+  const request = (code: string, ip: string) =>
+    codeRoute.POST(
+      new Request("http://localhost:3000/api/s/code", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify({ code }),
+      }),
+    );
+
+  it("rejects malformed numbers before lookup", async () => {
+    const response = await request("123", "198.51.100.10");
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ error: { code: "validation_error" } });
+  });
+
+  it("returns the lesson id for a valid number", async () => {
+    const { lesson } = await createLessonFixture();
+    const response = await request(lesson.accessCode, "198.51.100.11");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ lessonId: lesson.id });
+  });
+
+  it("reports an unknown number as not found", async () => {
+    const response = await request("999999999", "198.51.100.12");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ error: { code: "code_not_found" } });
+  });
+
+  it("locks out after five unknown numbers and blocks a valid number", async () => {
+    const { lesson } = await createLessonFixture();
+    const ip = "198.51.100.13";
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      expect((await request("999999999", ip)).status).toBe(404);
+    }
+
+    const blocked = await request(lesson.accessCode, ip);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBeTruthy();
+    expect(await blocked.json()).toMatchObject({
+      error: { code: "code_rate_limited", details: { retryAfter: expect.any(Number) } },
+    });
+  });
+
+  it("clears the failure count after a successful lookup", async () => {
+    const { lesson } = await createLessonFixture();
+    const ip = "198.51.100.14";
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      expect((await request("999999999", ip)).status).toBe(404);
+    }
+    expect((await request(lesson.accessCode, ip)).status).toBe(200);
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      expect((await request("999999999", ip)).status).toBe(404);
+    }
+    expect((await request(lesson.accessCode, ip)).status).toBe(200);
   });
 });
 

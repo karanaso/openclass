@@ -24,6 +24,7 @@ test("teacher publishes resources and students use the Resources tab", async ({ 
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Resources lesson ${suffix}`,
         originalFilename: `resources-${suffix}.pdf`,
         storageKey: `lessons/resources-${suffix}/original.pdf`,

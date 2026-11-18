@@ -1,13 +1,17 @@
 import { BookOpen, GraduationCap } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NameEntryForm } from "@/components/student/name-entry-form";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
+import { isLessonAccessCode } from "@/lib/lesson-code";
 import { getStoredStudentName, getStoredStudentSchool, getStudentSession } from "@/server/auth/student";
-import { hashShareToken, resolveShareToken } from "@/server/services/share-links";
+import { clientIpFromHeaders } from "@/server/auth/rate-limit";
+import { hashShareToken } from "@/server/services/share-links";
+import { resolveAccessCodeWithThrottle, resolveStudentAccess } from "@/server/services/student-access";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +26,28 @@ export default async function ShareLandingPage({
   const errors = await getTranslations("errors");
   const common = await getTranslations("common");
 
-  let share: Awaited<ReturnType<typeof resolveShareToken>> | null = null;
+  let share: Awaited<ReturnType<typeof resolveStudentAccess>> | null = null;
   let errorMessage: string | null = null;
+  const ip = clientIpFromHeaders(new Headers(await headers()));
   try {
-    share = await resolveShareToken(token);
+    share = isLessonAccessCode(token)
+      ? await resolveAccessCodeWithThrottle(token, ip)
+      : await resolveStudentAccess(token);
   } catch (error) {
     const code = error instanceof Error && "code" in error ? String((error as { code: string }).code) : "";
-    errorMessage = code === "expired_token" ? errors("expiredToken") : errors("invalidToken");
+    errorMessage =
+      code === "expired_token"
+        ? errors("expiredToken")
+        : code === "invalid_code"
+          ? errors("invalidCode")
+          : code === "rate_limited"
+            ? errors("codeRateLimited", {
+                seconds:
+                  "retryAfterSeconds" in (error as object)
+                    ? Number((error as { retryAfterSeconds: number }).retryAfterSeconds)
+                    : 30,
+              })
+            : errors("invalidToken");
   }
 
   const session = await getStudentSession();

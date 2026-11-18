@@ -1,12 +1,16 @@
 import { GraduationCap } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { LessonTabs } from "@/components/student/lesson-tabs";
 import { Alert } from "@/components/ui/alert";
 import { Link } from "@/i18n/navigation";
+import { isLessonAccessCode } from "@/lib/lesson-code";
 import { normalizeLocale } from "@/lib/locale";
+import { clientIpFromHeaders } from "@/server/auth/rate-limit";
 import { getStudentSession } from "@/server/auth/student";
-import { hashShareToken, resolveShareToken } from "@/server/services/share-links";
+import { hashShareToken } from "@/server/services/share-links";
+import { resolveAccessCodeWithThrottle, resolveStudentAccess } from "@/server/services/student-access";
 import { assertLessonInShare } from "@/server/student/guard";
 import { loadLessonForStudent } from "@/server/student/lesson-data";
 
@@ -23,13 +27,28 @@ export default async function StudentLessonPage({
   const common = await getTranslations("common");
   const errors = await getTranslations("errors");
 
-  let share: Awaited<ReturnType<typeof resolveShareToken>>;
+  let share: Awaited<ReturnType<typeof resolveStudentAccess>>;
+  const ip = clientIpFromHeaders(new Headers(await headers()));
   try {
-    share = await resolveShareToken(token);
-  } catch {
+    share = isLessonAccessCode(token)
+      ? await resolveAccessCodeWithThrottle(token, ip)
+      : await resolveStudentAccess(token);
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? String((error as { code: string }).code) : "";
     return (
       <main className="mx-auto max-w-3xl px-4 py-16">
-        <Alert variant="error">{errors("invalidToken")}</Alert>
+        <Alert variant="error">
+          {code === "invalid_code"
+            ? errors("invalidCode")
+            : code === "rate_limited"
+              ? errors("codeRateLimited", {
+                  seconds:
+                    "retryAfterSeconds" in (error as object)
+                      ? Number((error as { retryAfterSeconds: number }).retryAfterSeconds)
+                      : 30,
+                })
+              : errors("invalidToken")}
+        </Alert>
       </main>
     );
   }

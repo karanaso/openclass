@@ -1,14 +1,15 @@
 import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
 import { getStudentSession, getStudentSessionFromRequest, type StudentSession } from "@/server/auth/student";
-import { hashShareToken, resolveShareToken } from "@/server/services/share-links";
+import { hashShareToken } from "@/server/services/share-links";
+import { resolveStudentAccess, type StudentAccess } from "@/server/services/student-access";
 
 export type StudentContext = {
-  share: Awaited<ReturnType<typeof resolveShareToken>>;
+  share: StudentAccess;
   session: StudentSession;
 };
 
 export async function requireStudentContext(request: Request, token: string): Promise<StudentContext> {
-  const share = await resolveShareToken(token);
+  const share = await resolveStudentAccess(token);
   let session = await getStudentSessionFromRequest(request);
   if (!session) {
     try {
@@ -23,9 +24,12 @@ export async function requireStudentContext(request: Request, token: string): Pr
   return { share, session };
 }
 
-export function assertLessonInShare(share: StudentContext["share"], lessonId: string): void {
-  if (share.lessonId && share.lessonId !== lessonId) {
-    throw new ForbiddenError("This link does not grant access to that lesson");
+export function assertLessonInShare(share: StudentAccess, lessonId: string): void {
+  if (share.lessonId) {
+    if (share.lessonId !== lessonId) {
+      throw new ForbiddenError("This link does not grant access to that lesson");
+    }
+    return;
   }
   if (share.classId) {
     const allowed = share.class?.lessons.some((lesson) => lesson.id === lessonId);

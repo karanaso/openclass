@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import type { PrismaClient } from "@prisma/client";
 import { PDFDocument } from "pdf-lib";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
@@ -61,6 +62,7 @@ async function createLessonWithPages() {
   const lesson = await prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: "Biology",
       originalFilename: "biology.pdf",
       storageKey: "lessons/test/original.pdf",
@@ -208,6 +210,7 @@ describe("generation orchestration", () => {
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+      accessCode: nextTestAccessCode(),
         title: "Scanned",
         originalFilename: "scanned.pdf",
         storageKey: `lessons/${classroom.id}/original.pdf`,

@@ -27,6 +27,7 @@ test("teacher can edit and create questionnaire and game questions", async ({ pa
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Question editing lesson ${suffix}`,
         originalFilename: `question-editing-${suffix}.pdf`,
         storageKey: `lessons/question-editing-${suffix}/original.pdf`,

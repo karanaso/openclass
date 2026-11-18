@@ -18,6 +18,8 @@ const envSchema = z
     MAX_PDF_PAGES: z.coerce.number().int().positive().default(80),
     LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(8),
     LOGIN_WINDOW_SECONDS: z.coerce.number().int().positive().default(900),
+    LESSON_CODE_MAX_FAILURES: z.coerce.number().int().positive().default(5),
+    LESSON_CODE_LOCKOUT_SECONDS: z.coerce.number().int().positive().default(30),
     GENERATION_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
     DEFAULT_PASS_THRESHOLD: z.coerce.number().min(0).max(100).default(60),
     CARD_MIN: z.coerce.number().int().positive().default(8),

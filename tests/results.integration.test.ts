@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { nextTestAccessCode } from "./helpers/access-code";
 import type { PrismaClient } from "@prisma/client";
 import { startTestInfra, type TestInfra } from "./helpers/infra";
 import { resetEnvCache } from "@/lib/env";
@@ -35,6 +36,7 @@ async function seed() {
   const lessonA = await prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: "Lesson A",
       originalFilename: "a.pdf",
       storageKey: "lessons/a/original.pdf",
@@ -48,6 +50,7 @@ async function seed() {
   const lessonB = await prisma.lesson.create({
     data: {
       classId: classroom.id,
+      accessCode: nextTestAccessCode(),
       title: "Lesson B",
       originalFilename: "b.pdf",
       storageKey: "lessons/b/original.pdf",

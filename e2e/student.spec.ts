@@ -271,6 +271,7 @@ test("requires the school above the name and remembers it", async ({ page }) => 
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Entry lesson ${suffix}`,
         originalFilename: `${suffix}.pdf`,
         storageKey: `lessons/${suffix}/original.pdf`,
@@ -343,6 +344,7 @@ test("recovers a stale student session on the game tab", async ({ page }) => {
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Game session lesson ${suffix}`,
         originalFilename: `${suffix}.pdf`,
         storageKey: `lessons/${suffix}/original.pdf`,
@@ -416,6 +418,7 @@ test("copies an existing lesson share link after a reload", async ({ page }) => 
     const lesson = await prisma.lesson.create({
       data: {
         classId: classroom.id,
+        accessCode: String(100000000 + Math.floor(Math.random() * 900000000)),
         title: `Copy link lesson ${suffix}`,
         originalFilename: `${suffix}.pdf`,
         storageKey: `lessons/${suffix}/original.pdf`,
