@@ -12,10 +12,10 @@ The `GENERATE` stage is implemented in `src/server/generation/orchestrator.ts` a
 
 ## Providers
 
-- `AI_PROVIDER=openai` (default): uses the OpenAI Responses API with strict JSON Schema structured outputs.
+- `AI_PROVIDER=openai` (default): uses the OpenAI Responses API with strict JSON Schema structured outputs. Requests omit sampling parameters such as `temperature`, which reasoning models reject whenever reasoning effort is not `none`.
 - `AI_PROVIDER=mock`: deterministic local content for development and tests. No OpenAI key is required.
 
-Configure the model with `OPENAI_TEXT_MODEL` (default `gpt-4.1-mini`). Prompt version `v4` is recorded on every generation job.
+Configure the model with `OPENAI_TEXT_MODEL` (default `gpt-4.1-mini`). `gpt-6-luna` is supported. Set the optional `OPENAI_REASONING_EFFORT` (`none`, `low`, `medium`, `high`, `xhigh`, `max`) to choose reasoning effort; when it is unset the field is omitted and the model default applies. Whether a model accepts a given effort and sampling behavior is model-dependent. Prompt version `v4` is recorded on every generation job.
 
 ## Generation contract
 
@@ -69,7 +69,9 @@ Every content generation job records model, prompt version, input/output tokens,
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_TEXT_MODEL=gpt-4.1-mini
+OPENAI_TEXT_MODEL=gpt-6-luna
+# Optional; omit to use the model default.
+OPENAI_REASONING_EFFORT=low
 AI_PROVIDER=openai
 CARD_MIN=8
 CARD_MAX=16

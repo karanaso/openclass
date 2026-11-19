@@ -21,6 +21,7 @@ beforeEach(() => {
   process.env.TEACHER_PASSWORD = "test";
   process.env.OPENAI_API_KEY = "test-key";
   process.env.OPENAI_TEXT_MODEL = "gpt-4.1-mini";
+  delete process.env.OPENAI_REASONING_EFFORT;
   resetEnvCache();
   vi.stubGlobal("fetch", vi.fn());
 });
@@ -46,6 +47,23 @@ describe("OpenAI provider topics and suggestions", () => {
     expect(body.text.format.name).toBe("lesson_topics");
     expect(body.text.format.strict).toBe(true);
     expect(body.input[1].content).toContain("[Page 1]");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("reasoning");
+  });
+
+  it("sends the configured reasoning effort without sampling parameters", async () => {
+    process.env.OPENAI_REASONING_EFFORT = "low";
+    resetEnvCache();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response({ topics: { el: ["Φωτοσύνθεση"], en: ["Photosynthesis"] } }),
+    );
+
+    const provider = new OpenAIContentProvider();
+    await provider.topics({ pages, sourceLocale: "en" });
+
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(body.reasoning).toEqual({ effort: "low" });
+    expect(body).not.toHaveProperty("temperature");
   });
 
   it("requests a rubric with the strict rubric schema", async () => {

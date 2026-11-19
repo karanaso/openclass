@@ -12,6 +12,7 @@ const envSchema = z
     OPENAI_API_KEY: z.string().min(1).optional(),
     AI_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
     OPENAI_TEXT_MODEL: z.string().default("gpt-4.1-mini"),
+    OPENAI_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).optional(),
     STORAGE_ROOT: z.string().default("./data"),
     DEFAULT_LOCALE: z.enum(["el", "en"]).default("el"),
     MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),

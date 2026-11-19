@@ -36,6 +36,20 @@ describe("parseEnv", () => {
     expect(parseEnv({ ...base, OPENAI_TEXT_MODEL: "gpt-test" }).OPENAI_TEXT_MODEL).toBe("gpt-test");
   });
 
+  it("accepts every supported reasoning effort", () => {
+    for (const effort of ["none", "low", "medium", "high", "xhigh", "max"] as const) {
+      expect(parseEnv({ ...base, OPENAI_REASONING_EFFORT: effort }).OPENAI_REASONING_EFFORT).toBe(effort);
+    }
+  });
+
+  it("leaves reasoning effort unset by default", () => {
+    expect(parseEnv(base).OPENAI_REASONING_EFFORT).toBeUndefined();
+  });
+
+  it("rejects an unsupported reasoning effort", () => {
+    expect(() => parseEnv({ ...base, OPENAI_REASONING_EFFORT: "extreme" })).toThrow(/OPENAI_REASONING_EFFORT/);
+  });
+
   it("rejects inverted content ranges", () => {
     expect(() => parseEnv({ ...base, CARD_MIN: "20", CARD_MAX: "5" })).toThrow(/CARD_MIN/);
   });

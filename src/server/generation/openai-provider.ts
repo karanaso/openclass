@@ -32,6 +32,19 @@ export function strictify(value: unknown): unknown {
     for (const [key, child] of Object.entries(object)) {
       result[key] = strictify(child);
     }
+    if (result.not && typeof result.not === "object" && Object.keys(result.not as object).length === 0) {
+      delete result.not;
+    }
+    const anyOf = result.anyOf;
+    if (Array.isArray(anyOf)) {
+      const cleaned = anyOf.filter(
+        (item) => !(item && typeof item === "object" && Object.keys(item as object).length === 0),
+      );
+      if (cleaned.length === 1 && Object.keys(result).length === 1) {
+        return cleaned[0];
+      }
+      result.anyOf = cleaned;
+    }
     if (result.type === "object" && result.properties && typeof result.properties === "object") {
       result.additionalProperties = false;
       const properties = result.properties as Record<string, unknown>;
@@ -65,6 +78,24 @@ export class OpenAIContentProvider implements ContentProvider {
     }
 
     const jsonSchema = strictify(zodToJsonSchema(schema, { target: "jsonSchema7", $refStrategy: "none" }));
+    // Reasoning models reject sampling parameters such as temperature unless effort is none.
+    const body = {
+      model,
+      input: [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ],
+      max_output_tokens: 16_000,
+      text: {
+        format: {
+          type: "json_schema",
+          name,
+          strict: true,
+          schema: jsonSchema,
+        },
+      },
+      ...(env.OPENAI_REASONING_EFFORT ? { reasoning: { effort: env.OPENAI_REASONING_EFFORT } } : {}),
+    };
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -72,23 +103,7 @@ export class OpenAIContentProvider implements ContentProvider {
         authorization: `Bearer ${env.OPENAI_API_KEY}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        input: [
-          { role: "system", content: prompt.system },
-          { role: "user", content: prompt.user },
-        ],
-        temperature: 0.2,
-        max_output_tokens: 16_000,
-        text: {
-          format: {
-            type: "json_schema",
-            name,
-            strict: true,
-            schema: jsonSchema,
-          },
-        },
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(180_000),
     });
 

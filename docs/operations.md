@@ -101,7 +101,8 @@ The command should print nothing. If it prints paths, check the script output fo
 
 - Per-lesson and per-class usage is shown in the teacher UI.
 - `GENERATION_MAX_ATTEMPTS` limits retries.
-- `OPENAI_TEXT_MODEL` is configurable.
+- `OPENAI_TEXT_MODEL` is configurable. `gpt-6-luna` usage is estimated at $0.10 per 1M input tokens and $0.50 per 1M output tokens.
+- `OPENAI_REASONING_EFFORT` optionally selects `none`, `low`, `medium`, `high`, `xhigh`, or `max`; unset uses the model default.
 
 ## Incident checklist
 
