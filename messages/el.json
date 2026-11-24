@@ -244,6 +244,8 @@
     "resourceDismiss": "Απόρριψη",
     "resourceEdit": "Επεξεργασία",
     "resourceCloseEdit": "Κλείσιμο",
+    "resourceVisit": "Επίσκεψη",
+    "resourceVisitFor": "Επίσκεψη: {title}",
     "resourceKindYoutube": "Βίντεο YouTube",
     "resourceKindLink": "Σύνδεσμος",
     "sourceManual": "Χειροκίνητη",

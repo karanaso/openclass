@@ -1,12 +1,12 @@
 "use client";
 
-import { Pencil, Plus, Save, Sparkles, X } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Save, Sparkles, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { parseResourceUrl } from "@/lib/resources";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -277,7 +277,19 @@ export function ResourceManager({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <p className="font-semibold">{resource.title}</p>
-            <p className="break-all text-xs text-muted-foreground">{resource.url}</p>
+            {resource.status === "SUGGESTED" ? (
+              <a
+                href={resource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block break-all text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                data-testid={`resource-url-${index}`}
+              >
+                {resource.url}
+              </a>
+            ) : (
+              <p className="break-all text-xs text-muted-foreground">{resource.url}</p>
+            )}
             {resource.description ? (
               <p className="text-sm text-muted-foreground">{resource.description}</p>
             ) : null}
@@ -305,6 +317,19 @@ export function ResourceManager({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {resource.status === "SUGGESTED" ? (
+              <a
+                href={resource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                aria-label={t("resourceVisitFor", { title: resource.title })}
+                data-testid={`resource-visit-${index}`}
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden />
+                {t("resourceVisit")}
+              </a>
+            ) : null}
             <Button
               type="button"
               variant="ghost"

@@ -8,7 +8,7 @@ Lesson resources are extra links and YouTube videos that belong to one lesson. T
 2. Use **Lesson resources** to add a title, URL, and optional description.
    - A supported YouTube video URL (watch, short, shorts, embed, or live form) is detected automatically and played in an embedded player.
    - Any other HTTP or HTTPS URL is stored as a normal link.
-3. When the PDF contains URLs, link annotations, or QR codes, extraction adds them under **Suggestions**. Choose **Approve** to publish one or **Dismiss** to hide it permanently.
+3. When the PDF contains URLs, link annotations, or QR codes, extraction adds them under **Suggestions**. Open a suggestion's link or choose **Visit** to inspect its destination in a new tab with `noopener noreferrer`, then choose **Approve** to publish it or **Dismiss** to hide it permanently.
 4. Approved resources can be edited inline or deleted. Manual resources are published immediately.
 
 Only approved resources are sent to students. Suggested and dismissed resources never appear in the student payload.

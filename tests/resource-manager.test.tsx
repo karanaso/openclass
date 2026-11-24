@@ -7,7 +7,10 @@ import type { LessonResourceView } from "@/server/services/resources";
 const refresh = vi.fn();
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key.split(".").pop() ?? key,
+  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
+    const label = key.split(".").pop() ?? key;
+    return typeof values?.title === "string" ? `${label}: ${values.title}` : label;
+  },
 }));
 
 vi.mock("@/i18n/navigation", () => ({
@@ -125,6 +128,39 @@ describe("resource manager", () => {
       url: "https://example.com/updated",
     });
     expect(await screen.findByText("resourceSaved")).toBeInTheDocument();
+  });
+
+  it("renders a suggested resource URL as a new-tab link", () => {
+    renderManager();
+
+    const link = screen.getByTestId("resource-url-1");
+    expect(link).toHaveAttribute("href", suggested.url);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("opens a suggested resource through a Visit action", () => {
+    renderManager();
+
+    const visit = screen.getByTestId("resource-visit-1");
+    expect(visit).toHaveAttribute("href", suggested.url);
+    expect(visit).toHaveAttribute("target", "_blank");
+    expect(visit).toHaveAttribute("rel", "noopener noreferrer");
+    expect(visit).toHaveTextContent("resourceVisit");
+    expect(visit).toHaveAccessibleName("resourceVisitFor: Found video");
+  });
+
+  it("keeps review actions and leaves published rows free of suggestion navigation", () => {
+    renderManager();
+
+    expect(screen.getByTestId("resource-edit-1")).toBeInTheDocument();
+    expect(screen.getByTestId("resource-approve-1")).toBeInTheDocument();
+    expect(screen.getByTestId("resource-dismiss-1")).toBeInTheDocument();
+
+    expect(screen.queryByTestId("resource-url-0")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("resource-visit-0")).not.toBeInTheDocument();
+    expect(screen.getByTestId("resource-edit-0")).toBeInTheDocument();
+    expect(screen.getByTestId("resource-delete-0")).toBeInTheDocument();
   });
 
   it("approves a suggestion", async () => {

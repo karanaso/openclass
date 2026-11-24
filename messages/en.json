@@ -244,6 +244,8 @@
     "resourceDismiss": "Dismiss",
     "resourceEdit": "Edit",
     "resourceCloseEdit": "Close",
+    "resourceVisit": "Visit",
+    "resourceVisitFor": "Visit {title}",
     "resourceKindYoutube": "YouTube video",
     "resourceKindLink": "Link",
     "sourceManual": "Manual",

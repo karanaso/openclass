@@ -73,6 +73,16 @@ test("teacher publishes resources and students use the Resources tab", async ({ 
     await expect(page.getByTestId("resource-manager")).toBeVisible();
     await expect(page.getByText(`Suggested ${suffix}`)).toBeVisible();
 
+    const suggestionLink = page.getByTestId("resource-url-0");
+    await expect(suggestionLink).toHaveAttribute("href", suggestedUrl);
+    await expect(suggestionLink).toHaveAttribute("target", "_blank");
+    await expect(suggestionLink).toHaveAttribute("rel", "noopener noreferrer");
+
+    const visitSuggestion = page.getByTestId("resource-visit-0");
+    await expect(visitSuggestion).toHaveAttribute("href", suggestedUrl);
+    await expect(visitSuggestion).toHaveAttribute("target", "_blank");
+    await expect(visitSuggestion).toHaveAttribute("rel", "noopener noreferrer");
+
     // Approve the extracted suggestion.
     await page.getByTestId("resource-approve-0").click();
     await expect(page.getByText("Δημοσιευμένες πηγές")).toBeVisible({ timeout: 15_000 });
