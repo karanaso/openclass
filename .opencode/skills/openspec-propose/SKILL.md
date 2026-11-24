@@ -1,7 +1,7 @@
 ---
 name: openspec-propose
 description: Propose a new OpenSpec change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation. Also use when the user says "openspec propose" or "opsx propose".
-allowed-tools: Bash(openspec:*)
+allowed-tools: Bash(openspec:*), Bash(node:*), Bash(opencode:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
@@ -174,12 +174,37 @@ In both branches, never create the root as a side effect: do not run `openspec i
    openspec status --change "<name>"
    ```
 
+9. **Record the propose cost**
+
+   If the ticket created or reused in step 4 exists, run:
+   ```bash
+   node scripts/opsx-cost.mjs record propose "<ticket-path>"
+   ```
+   This writes or refreshes a `## Cost` section in the ticket with the cost of
+   this propose run in USD plus token counts. Cost tracking is best-effort: if
+   the command prints `opsx-cost: skipped`, continue and report that the cost is
+   not tracked. Never block the proposal on it.
+
+10. **Estimate the implementation cost**
+
+   If the ticket created or reused in step 4 exists, run:
+   ```bash
+   node scripts/opsx-cost.mjs estimate "<ticket-path>" --change "<changeRoot>"
+   ```
+   This writes or refreshes the ticket's estimated implementation cost, its
+   low/high range, and the basis in the same `## Cost` section as the recorded
+   actuals. Estimation is best-effort: if the command prints
+   `opsx-cost: skipped`, continue and report that the estimate is not tracked.
+   Never block the proposal on it.
+
 **Output**
 
 After completing all artifacts, summarize:
 - Change name and location
 - Ticket path and whether it was created or reused
 - List of artifacts created with brief descriptions, plus any conditional artifact you skipped and why
+- Cost so far from the ticket's `## Cost` section (or "not tracked")
+- Estimated implementation cost from the ticket's `## Cost` section (or "not tracked")
 - What's ready: "All artifacts needed for implementation are ready."
 - Prompt: "The artifacts are ready for review. When you are ready, run `/opsx-apply` or ask me to apply this change."
 
@@ -201,4 +226,5 @@ After completing all artifacts, summarize:
 - Ask about ambiguities that would materially change scope, externally observable behavior, compatibility, or acceptance criteria; for minor details, make reasonable assumptions and record them
 - If a change with that name already exists, ask if user wants to continue it or create a new one
 - Create or reuse exactly one ticket at `tickets/<YYYY-MM-DD>-<change-name>/ticket.md` before creating the change; never overwrite an existing ticket, and use its `## Request` section as the authoritative description
+- After the artifacts are complete, record the propose cost with `node scripts/opsx-cost.mjs record propose "<ticket-path>"` and estimate the implementation cost with `node scripts/opsx-cost.mjs estimate "<ticket-path>" --change "<changeRoot>"` when a ticket exists; both are best-effort and must never block the proposal
 - Verify each artifact file exists after writing before proceeding to next

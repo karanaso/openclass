@@ -9,6 +9,7 @@
     "start": "next start",
     "backup": "sh scripts/backup.sh",
     "restore": "sh scripts/restore.sh",
+    "opsx-cost": "node scripts/opsx-cost.mjs",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

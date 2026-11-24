@@ -1,7 +1,7 @@
 ---
 name: openspec-apply-change
 description: Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks. Also use when the user says "openspec apply", "opsx apply", or "openspec implement".
-allowed-tools: Bash(openspec:*)
+allowed-tools: Bash(openspec:*), Bash(node:*), Bash(opencode:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
@@ -137,9 +137,24 @@ In both branches, never create the root as a side effect: do not run `openspec i
      ```
 
      Keep every other part of the ticket intact and do not duplicate the section on a re-run.
-   - If no ticket exists, report that no ticket was found and continue; do not block completion or invent a request.
+   - If a ticket exists, record the change's cost so far by running:
+     ```bash
+     node scripts/opsx-cost.mjs record apply "<ticket-path>"
+     ```
+     This writes or refreshes a `## Cost` section in the ticket with the
+     propose → apply total in USD plus token counts. Cost tracking is
+     best-effort: if the command prints `opsx-cost: skipped`, continue and
+     report that the cost is not tracked. Never block completion on it.
+     After recording, read the estimate from the ticket's `## Cost` section and
+     report it next to the actual apply cost (estimate vs actual). Estimate
+     reporting is best-effort too; never block completion on it.
+   - If no ticket exists, report that no ticket was found and that the cost is
+     not tracked, then continue; do not block completion or invent a request.
 
-   If the run pauses with tasks remaining, do not change the ticket.
+   If the run pauses with tasks remaining, do not change the ticket status or
+   `## Implementation` section, but still record the cost of the partial run
+   with `node scripts/opsx-cost.mjs record apply "<ticket-path>"` when a ticket
+   exists.
 
 8. **On completion or pause, show status**
 
@@ -172,6 +187,7 @@ Working on task 4/7: <task description>
 **Schema:** <schema-name>
 **Progress:** 7/7 tasks complete ✓
 **Ticket:** <ticket-path> (Status: implemented)
+**Cost:** <total> (propose $X · apply $Y) · estimate $Z — see `## Cost` in the ticket
 
 ### Completed This Session
 - [x] Task 1
@@ -190,6 +206,7 @@ before archiving. You can archive this change with `/opsx-archive`.
 **Change:** <change-name>
 **Schema:** <schema-name>
 **Progress:** 4/7 tasks complete
+**Cost so far:** <total> — see `## Cost` in the ticket
 
 ### Issue Encountered
 <description of the issue>
@@ -213,6 +230,7 @@ What would you like to do?
 - When a task needs work beyond what the spec describes, surface the added scope and pause - never silently narrow, defer, or simplify away specified behavior
 - Only mark a task `- [x]` when its specified behavior is fully implemented, not when it is partially done or deferred
 - On completion, mark the ticket `Status: implemented` and refresh its `## Implementation` section; never modify its `## Request` section or duplicate the implementation section
+- After updating the ticket, record the change cost with `node scripts/opsx-cost.mjs record apply "<ticket-path>"`; cost tracking is best-effort and must never block completion
 - Report a missing ticket but never block apply on it; if several tickets match, update the newest and mention the others
 - Use contextFiles from CLI output, don't assume specific file names
 - Use each task's sourcePath and line to update its exact checkbox

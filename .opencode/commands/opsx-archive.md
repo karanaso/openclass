@@ -176,13 +176,33 @@ In both branches, never create the root as a side effect: do not run `openspec i
    mv "<changeRoot>" "<planningHome.changesDir>/archive/<target-name>"
    ```
 
-6. **Display summary**
+6. **Record the change cost**
+
+   Find the change's ticket under the current working directory:
+   `tickets/*-<change-name>/ticket.md`, plus
+   `tickets/<change-name>/ticket.md` for undated folders. If several match,
+   use the newest folder (ISO-dated names sort by date) and mention the others.
+
+   If a ticket exists, run:
+   ```bash
+   node scripts/opsx-cost.mjs record archive "<ticket-path>"
+   ```
+   This writes or refreshes the ticket's `## Cost` section with the
+   propose → apply → archive total in USD plus token counts. Cost tracking is
+   best-effort: if the command prints `opsx-cost: skipped`, continue and report
+   that the cost is not tracked. Never block archiving on it.
+
+   If no ticket exists, report that the cost is not tracked because no ticket
+   was found; do not block the archive and do not invent a ticket.
+
+7. **Display summary**
 
    Show archive completion summary including:
    - Change name
    - Schema that was used
    - Archive location
    - Spec sync status (synced / sync skipped / no delta specs)
+   - Cost total from the ticket's `## Cost` section (or "not tracked")
    - Note about any warnings (incomplete artifacts/tasks)
 
 **Output On Success**
@@ -194,6 +214,7 @@ In both branches, never create the root as a side effect: do not run `openspec i
 **Schema:** <schema-name>
 **Archived to:** the archive path derived from `planningHome.changesDir`/<target-name>/
 **Specs:** ✓ Synced to main specs
+**Cost:** <total> (propose $X · apply $Y · archive $Z) — see `## Cost` in the ticket
 
 All artifacts complete. All tasks complete.
 ```
@@ -207,6 +228,7 @@ All artifacts complete. All tasks complete.
 **Schema:** <schema-name>
 **Archived to:** the archive path derived from `planningHome.changesDir`/<target-name>/
 **Specs:** No delta specs
+**Cost:** <total> (propose $X · apply $Y · archive $Z) — see `## Cost` in the ticket
 
 All artifacts complete. All tasks complete.
 ```
@@ -220,6 +242,7 @@ All artifacts complete. All tasks complete.
 **Schema:** <schema-name>
 **Archived to:** the archive path derived from `planningHome.changesDir`/<target-name>/
 **Specs:** Sync skipped (user chose to skip)
+**Cost:** <total> (propose $X · apply $Y · archive $Z) — see `## Cost` in the ticket
 
 **Warnings:**
 - Archived with 2 incomplete artifacts
@@ -249,6 +272,7 @@ Target archive directory already exists.
 - Announce the selected change; prompt for selection when it is ambiguous
 - Use artifact graph (openspec status --json) for completion checking
 - Don't block archive on warnings - just inform and confirm
+- After the archive succeeds, record the change cost with `node scripts/opsx-cost.mjs record archive "<ticket-path>"` when a ticket exists; cost tracking is best-effort and must never block archiving
 - Preserve .openspec.yaml when moving to archive (it moves with the directory)
 - Show clear summary of what happened
 - If sync is requested, run the `/opsx-sync` workflow inline (agent-driven)
