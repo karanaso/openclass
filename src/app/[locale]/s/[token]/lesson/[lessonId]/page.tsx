@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { LessonTabs } from "@/components/student/lesson-tabs";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { Alert } from "@/components/ui/alert";
 import { Link } from "@/i18n/navigation";
 import { isLessonAccessCode } from "@/lib/lesson-code";
@@ -82,6 +83,7 @@ export default async function StudentLessonPage({
             </span>
             {common("appName")}
           </Link>
+          <ThemeSwitcher />
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl px-4 py-6">

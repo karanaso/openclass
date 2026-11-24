@@ -520,12 +520,12 @@ export function QuestionEditor({
                           {t("saveQuestion")}
                         </Button>
                         {status === "saved" ? (
-                          <span className="text-sm text-emerald-700" role="status">
+                          <span className="text-sm text-emerald-700 dark:text-emerald-300" role="status">
                             {t("questionSaved")}
                           </span>
                         ) : null}
                         {status === "error" ? (
-                          <span className="text-sm text-red-700" role="alert">
+                          <span className="text-sm text-red-700 dark:text-red-300" role="alert">
                             {errors[question.id]}
                           </span>
                         ) : null}
@@ -651,12 +651,12 @@ export function QuestionEditor({
                     {t("addQuestion")}
                   </Button>
                   {createStatus === "saved" ? (
-                    <span className="text-sm text-emerald-700" role="status">
+                    <span className="text-sm text-emerald-700 dark:text-emerald-300" role="status">
                       {t("questionCreated")}
                     </span>
                   ) : null}
                   {createStatus === "error" ? (
-                    <span className="text-sm text-red-700" role="alert">
+                    <span className="text-sm text-red-700 dark:text-red-300" role="alert">
                       {newErrors[mode]}
                     </span>
                   ) : null}

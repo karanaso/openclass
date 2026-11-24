@@ -199,9 +199,9 @@ export function Questionnaire({
               <div key={item.questionId} className="rounded-xl border bg-card p-4">
                 <div className="flex items-start gap-2">
                   {item.isCorrect ? (
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
                   ) : (
-                    <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+                    <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
                   )}
                   <div className="space-y-2">
                     <p className="font-medium">{prompt?.prompt}</p>
@@ -209,7 +209,7 @@ export function Questionnaire({
                       {t("yourAnswer")}: {selected?.text ?? "—"}
                     </p>
                     {!item.isCorrect ? (
-                      <p className="text-sm text-emerald-700">
+                      <p className="text-sm text-emerald-700 dark:text-emerald-300">
                         {t("correctAnswer")}: {correct?.text}
                       </p>
                     ) : null}
@@ -306,7 +306,7 @@ export function Questionnaire({
               index === current
                 ? "border-primary bg-primary text-primary-foreground"
                 : answers[item.id]
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200"
                   : "bg-card"
             }`}
             aria-label={`${index + 1}`}

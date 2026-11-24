@@ -59,7 +59,7 @@ export function CardDeck({
     <div className="space-y-4" data-testid="card-deck">
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{t("deckProgress", { current: index + 1, total: cards.length })}</span>
-        {completed ? <span className="text-emerald-700">{t("completed")}</span> : null}
+        {completed ? <span className="text-emerald-700 dark:text-emerald-300">{t("completed")}</span> : null}
       </div>
 
       <div

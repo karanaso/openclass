@@ -206,7 +206,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await expect(classSummary).not.toContainText("Classmate B");
 
   // Locale switch keeps the lesson and tab
-  await page.locator("select").first().selectOption("en");
+  await page.getByRole("combobox", { name: "Γλώσσα" }).selectOption("en");
   await expect(page).toHaveURL(/\/en\/s\/.+\/lesson\//);
   await expect(page.getByTestId("tab-cards")).toContainText("Cards");
   await expect(page.getByTestId("tab-quiz")).toContainText("Quiz");
@@ -217,7 +217,7 @@ test("students can learn, play, and be assessed from a share link", async ({ pag
   await page.getByTestId("tab-pdf").click();
   await expect(page).toHaveURL(/[?&]tab=pdf/);
   await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
-  await page.locator("select").first().selectOption("el");
+  await page.getByRole("combobox", { name: "Language" }).selectOption("el");
   await expect(page).toHaveURL(/\/el\/s\/.+\/lesson\//);
   await expect(page.getByTestId("tab-pdf")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByTestId("pdf-frame")).toHaveAttribute("src", sourceUrl);

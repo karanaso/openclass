@@ -171,7 +171,7 @@ export function ShareLinkManager({
                     </span>
                   ) : null}
                   {link.revokedAt ? (
-                    <span className="text-xs font-semibold text-red-700">{t("revoked")}</span>
+                    <span className="text-xs font-semibold text-red-700 dark:text-red-300">{t("revoked")}</span>
                   ) : (
                     <Button variant="ghost" size="sm" onClick={() => revoke(link.id)} disabled={pending}>
                       <Trash2 className="h-4 w-4 text-destructive" aria-hidden />

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { NameEntryForm } from "@/components/student/name-entry-form";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
@@ -62,14 +63,17 @@ export default async function ShareLandingPage({
   return (
     <div className="min-h-screen">
       <header className="app-header">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-3 py-3 sm:px-4">
           <Link href="/" className="inline-flex items-center gap-2 font-bold">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
               <GraduationCap className="h-5 w-5" aria-hidden />
             </span>
-            {common("appName")}
+            <span className="hidden min-[480px]:inline">{common("appName")}</span>
           </Link>
-          <LocaleSwitcher />
+          <div className="flex items-center gap-2">
+            <ThemeSwitcher />
+            <LocaleSwitcher />
+          </div>
         </div>
       </header>
 

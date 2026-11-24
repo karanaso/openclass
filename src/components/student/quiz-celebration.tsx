@@ -43,7 +43,7 @@ export function QuizCelebration({ active, label }: { active: boolean; label: str
       data-testid="quiz-celebration"
       role="status"
       aria-live="polite"
-      className="pointer-events-none relative flex items-center justify-center overflow-visible rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800"
+      className="pointer-events-none relative flex items-center justify-center overflow-visible rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
     >
       {showParticles ? (
         <div aria-hidden data-testid="quiz-celebration-particles" className="absolute inset-0 flex items-center justify-center">

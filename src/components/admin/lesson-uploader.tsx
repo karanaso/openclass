@@ -128,9 +128,9 @@ export function LessonUploader({ classId }: { classId: string }) {
             <div key={`${result.filename}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
                 {result.status === "accepted" ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
                 ) : (
-                  <XCircle className="h-4 w-4 text-red-600" aria-hidden />
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" aria-hidden />
                 )}
                 {result.filename}
               </span>

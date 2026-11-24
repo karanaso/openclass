@@ -27,13 +27,13 @@ function Switcher() {
 
   return (
     <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-      <Globe className="h-4 w-4" aria-hidden />
+      <Globe className="hidden h-4 w-4 min-[480px]:block" aria-hidden />
       <span className="sr-only">{t("language")}</span>
       <select
         value={locale}
         disabled={pending}
         onChange={(event) => change(event.target.value as Locale)}
-        className="rounded-md border border-input bg-card px-2 py-1 text-sm"
+        className="rounded-md border border-input bg-card px-1.5 py-1 text-sm sm:px-2"
         aria-label={t("language")}
       >
         {routing.locales.map((item) => (

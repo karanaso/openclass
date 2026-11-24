@@ -245,7 +245,7 @@ export function MillionaireGame({
     return (
       <div className="space-y-4 text-center">
         {failure ? <Alert variant="error">{t("gameUnexpected")}</Alert> : null}
-        <div className="rounded-3xl border bg-gradient-to-br from-amber-50 to-card p-10">
+        <div className="rounded-3xl border bg-gradient-to-br from-amber-50 to-card p-10 dark:from-amber-500/10">
           <Trophy className="mx-auto h-12 w-12 text-amber-500" aria-hidden />
           <h2 className="mt-4 text-2xl font-black">{t("startGame")}</h2>
           <Button size="lg" variant="accent" className="mt-6" onClick={start} disabled={loading} data-testid="game-start">
@@ -293,7 +293,7 @@ export function MillionaireGame({
                   {t("yourAnswer")}: {selected?.text ?? "—"}
                 </p>
                 {!item.isCorrect ? (
-                  <p className="text-emerald-700">
+                  <p className="text-emerald-700 dark:text-emerald-300">
                     {t("correctAnswer")}: {correct?.text}
                   </p>
                 ) : null}
@@ -386,7 +386,11 @@ export function MillionaireGame({
             <motion.div
               initial={reduceMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              className={`rounded-xl border p-4 ${feedback.isCorrect ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
+              className={`rounded-xl border p-4 ${
+                feedback.isCorrect
+                  ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                  : "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
+              }`}
             >
               <p className="font-semibold">{feedback.isCorrect ? t("correct") : t("incorrect")}</p>
               <p className="mt-1 text-sm">{feedback.explanation}</p>

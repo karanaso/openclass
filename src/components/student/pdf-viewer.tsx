@@ -95,7 +95,7 @@ export function PdfViewer({ token, url }: { token: string; url: string }) {
           data-testid="pdf-frame"
           title={t("pdfTitle")}
           src={url}
-          className={`w-full rounded-2xl border bg-white ${
+          className={`w-full rounded-2xl border bg-card ${
             fullscreen ? "min-h-0 flex-1" : "h-[70vh] min-h-[420px] max-h-[900px]"
           }`}
         />

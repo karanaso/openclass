@@ -84,7 +84,7 @@ export function LessonStatus({
       <span data-testid="lesson-status" data-status={status}>
         <StatusBadge status={status} />
       </span>
-      {failure ? <p className="max-w-xs text-right text-xs text-red-700">{failure}</p> : null}
+      {failure ? <p className="max-w-xs text-right text-xs text-red-700 dark:text-red-300">{failure}</p> : null}
     </div>
   );
 }

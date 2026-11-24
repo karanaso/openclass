@@ -7,7 +7,7 @@ test.describe("locale handling", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Μετέτρεψε");
 
     await page.goto("/el/login?from=test");
-    await page.locator("select").first().selectOption("en");
+    await page.getByRole("combobox", { name: "Γλώσσα" }).selectOption("en");
     await expect(page).toHaveURL(/\/en\/login\?from=test/);
     await expect(page.getByRole("heading", { name: "Teacher login" })).toBeVisible();
   });
