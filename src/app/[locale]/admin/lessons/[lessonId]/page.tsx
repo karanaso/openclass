@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Bot, FileText, ListChecks } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, FileText, ListChecks, Pencil } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import {
@@ -138,15 +138,12 @@ export default async function LessonDetailPage({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="generated-content-summary">
           <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BookOpen className="h-4 w-4" aria-hidden />
-                {t("artifacts")}
-              </CardTitle>
-              <GeneratedContentActions />
-            </div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4" aria-hidden />
+              {t("artifacts")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4 text-sm">
             <GeneratedContentCounts />
@@ -159,6 +156,19 @@ export default async function LessonDetailPage({
             <p>
               {t("resourcesCount")}: <strong data-testid="lesson-resources-count">{lesson._count.resources}</strong>
             </p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="generated-content-actions">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Pencil className="h-4 w-4" aria-hidden />
+              {t("editContent")}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{t("editContentHint")}</p>
+          </CardHeader>
+          <CardContent>
+            <GeneratedContentActions />
           </CardContent>
         </Card>
       </div>

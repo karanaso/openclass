@@ -27,11 +27,16 @@ The system SHALL allow only an authenticated teacher to read and update question
 
 ### Requirement: Questions editor opens from Generated content
 
-The lesson detail view SHALL provide a question edit action next to the "Generated content" heading that shows a Questions editor, with questionnaire questions and game questions presented as separate sections.
+The lesson detail view SHALL show the generated-content summary in one card and a separate edit actions card beside it, SHALL provide the question edit action in the edit actions card, and SHALL present questionnaire and game questions as separate sections in the Questions editor.
+
+#### Scenario: Summary and edit actions are separate cards
+
+- **WHEN** a teacher opens the detail page of a lesson
+- **THEN** the "Generated content" card shows only the generated-content summary and a separate "Edit content" card holds the card and question edit actions
 
 #### Scenario: Edit action opens the Questions editor
 
-- **WHEN** a teacher activates the question edit action on the "Generated content" card
+- **WHEN** a teacher activates the question edit action on the "Edit content" card
 - **THEN** the Questions editor becomes visible
 
 #### Scenario: Edit action hides the editor

@@ -116,6 +116,14 @@ test("teacher can edit and create questionnaire and game questions", async ({ pa
     await page.goto(`/el/admin/lessons/${lesson.id}`);
     await expect(page.getByRole("heading", { name: lesson.title })).toBeVisible();
 
+    // The summary and the edit actions live in separate side-by-side cards.
+    const summaryCard = page.getByTestId("generated-content-summary");
+    const actionsCard = page.getByTestId("generated-content-actions");
+    await expect(summaryCard.getByRole("heading", { name: "Παραγόμενο περιεχόμενο" })).toBeVisible();
+    await expect(actionsCard.getByRole("heading", { name: "Επεξεργασία περιεχομένου" })).toBeVisible();
+    await expect(summaryCard.getByTestId("edit-questions-button")).toHaveCount(0);
+    await expect(actionsCard.getByTestId("edit-questions-button")).toBeVisible();
+
     // The Questions editor opens from Generated content and shows both modes.
     await expect(page.getByTestId("question-editor")).toHaveCount(0);
     await page.getByTestId("edit-questions-button").click();

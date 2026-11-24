@@ -116,12 +116,17 @@ The system SHALL replace the entire deck when the teacher regenerates lesson con
 
 ### Requirement: Card editor opens from Generated content
 
-The lesson detail view SHALL provide a card edit action next to the "Generated content" heading that shows the deck editor, and SHALL keep the editor hidden until the action is used.
+The lesson detail view SHALL show the generated-content summary in one card and a separate edit actions card beside it, SHALL provide the card edit action in the edit actions card, and SHALL keep the deck editor hidden until the action is used.
+
+#### Scenario: Summary and edit actions are separate cards
+
+- **WHEN** a teacher opens the detail page of a lesson
+- **THEN** the "Generated content" card shows only the generated-content summary and a separate "Edit content" card holds the card and question edit actions
 
 #### Scenario: Edit action opens the deck editor
 
-- **WHEN** a teacher activates the card edit action on the "Generated content" card
-- **THEN** the deck editor becomes visible below the generated content summary
+- **WHEN** a teacher activates the card edit action on the "Edit content" card
+- **THEN** the deck editor becomes visible below the generated content summary and edit actions cards
 
 #### Scenario: Edit action hides the editor
 

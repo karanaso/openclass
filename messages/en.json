@@ -153,6 +153,8 @@
     "accessCodeRegenerated": "New lesson number created.",
     "accessCodeRegenerateFailed": "Could not change the lesson number. Try again.",
     "artifacts": "Generated content",
+    "editContent": "Edit content",
+    "editContentHint": "Open an editor to change cards or questions.",
     "cardsCount": "Cards",
     "editCards": "Edit cards",
     "editCardsHint": "Change the text of individual cards. Regenerating the lesson replaces the deck and discards these edits.",

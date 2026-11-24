@@ -64,6 +64,14 @@ test("teacher can edit deck card content in both locales", async ({ page }) => {
     await page.goto(`/el/admin/lessons/${lesson.id}`);
     await expect(page.getByRole("heading", { name: lesson.title })).toBeVisible();
 
+    // The summary and the edit actions live in separate side-by-side cards.
+    const summaryCard = page.getByTestId("generated-content-summary");
+    const actionsCard = page.getByTestId("generated-content-actions");
+    await expect(summaryCard.getByRole("heading", { name: "Παραγόμενο περιεχόμενο" })).toBeVisible();
+    await expect(actionsCard.getByRole("heading", { name: "Επεξεργασία περιεχομένου" })).toBeVisible();
+    await expect(summaryCard.getByTestId("edit-cards-button")).toHaveCount(0);
+    await expect(actionsCard.getByTestId("edit-cards-button")).toBeVisible();
+
     // The editor stays hidden until the Generated content action opens it.
     await expect(page.getByTestId("card-editor")).toHaveCount(0);
     await page.getByTestId("edit-cards-button").click();
